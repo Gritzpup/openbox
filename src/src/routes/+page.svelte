@@ -39,7 +39,7 @@
     let wizardImportResults = $state([]);
     let installingStatus = $state("");
 
-    const CURRENT_VERSION = "v0.1.38";
+    const CURRENT_VERSION = "v0.1.40";
 
     function addLog(message: string) {
         const timestamp = new Date().toLocaleTimeString();
