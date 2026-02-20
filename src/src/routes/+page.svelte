@@ -126,6 +126,7 @@
     }
 
     async function checkForUpdates() {
+        if (isUpdating) return;
         try {
             console.log("Checking for updates...");
             const update = await check();
@@ -190,7 +191,9 @@
     onMount(async () => {
         await loadConfig();
         autoDetect();
+        
         checkForUpdates();
+        const updateInterval = setInterval(checkForUpdates, 30000);
         
         const unlisten = await getCurrentWindow().onFileDropEvent((event) => {
             if (event.payload.type === 'drop') {
@@ -198,7 +201,10 @@
             }
         });
 
-        return () => unlisten();
+        return () => {
+            unlisten();
+            clearInterval(updateInterval);
+        };
     });
 </script>
 
