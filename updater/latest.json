@@ -1,11 +1,11 @@
 {
-  "version": "0.1.76",
-  "notes": "v0.1.76: Enhanced build status logic (handles queued and job-level failures)",
-  "pub_date": "2026-02-20T15:24:00Z",
+  "version": "0.1.78",
+  "notes": "v0.1.78: Switched to local update server and fixed Drag & Drop",
+  "pub_date": "2026-02-20T16:30:00Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSVHlmR2ZLTTlTTFFibmdvcmcxRmxITXpmNG1zUkFWdE1VcjYwN2hWTVZTRDF1RWpoN0FTRFkvTUkrb2FQRFhoNjg3c3lUUHdTcEdETnpZbktwZWZ6S1gxR2ZLQ212cFFzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcxNjAxMDM0CWZpbGU6VHVyYm9MYXVuY2hfMC4xLjc2X3g2NC1zZXR1cC5leGUKV2tBbnJMVm5GY3UrK3Z5dm9ObnpuVnNhRExVNjFFUVh5RDFQM0xpRTZ4VWl2Z09RQTlVWWRmNTh1MjFuRytZWEhTTTBpa3h1enozNVQxb1ZGdWJaQWc9PQo=",
-      "url": "https://github.com/Gritzpup/openbox/releases/download/app-v0.1.76/TurboLaunch_0.1.76_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSVHlmR2ZLTTlTTFdtZUwrRUNoci95SFgrQU9YMm1Oeng1cXpTSFVVckFSenpWbjlRSm5YOTcwSjM1bVdKYms5NkVEempHN2M1VktXWjN3czdiWkVHTmZibnpQcEZaOXdNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcxNjA1MTEwCWZpbGU6VHVyYm9MYXVuY2hfMC4xLjc4X3g2NC1zZXR1cC5leGUKclQ4THVHMllzdEMyRHhoU2pVZ0RYVFg3Q3d3eEVYTnNFYWUxQUxoeWx4aHVHQlluSFpBK3JFdkpiNnUxRGJpWUt0bW1aejBMVkdqb0JxQ1V0eUdNQnc9PQo=",
+      "url": "https://github.com/Gritzpup/openbox/releases/download/app-v0.1.78/TurboLaunch_0.1.78_x64-setup.exe"
     }
   }
 }
