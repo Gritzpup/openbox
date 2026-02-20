@@ -50,8 +50,7 @@ async fn report_version(version: String, nas_path: Option<String>, error: Option
     }
 }
 
-#[tauri::command]
-async fn log_to_nas(message: String, nas_path: Option<String>) {
+pub async fn internal_log_to_nas(message: String, nas_path: Option<String>) {
     if let Some(path) = nas_path {
         let log_file = std::path::PathBuf::from(path).join("turbolaunch_telemetry.log");
         let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
@@ -66,6 +65,11 @@ async fn log_to_nas(message: String, nas_path: Option<String>) {
             });
     }
     println!("Log: {}", message);
+}
+
+#[tauri::command]
+async fn log_to_nas(message: String, nas_path: Option<String>) {
+    internal_log_to_nas(message, nas_path).await;
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

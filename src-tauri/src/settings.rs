@@ -79,12 +79,19 @@ pub async fn sync_emulators(
     for (id, latest_ver) in required {
         let current_ver = versions[id].as_str().unwrap_or("");
         if current_ver != latest_ver {
-            println!("Syncing emulator {}: {} -> {}", id, current_ver, latest_ver);
+            let log_msg = format!("Syncing emulator {}: {} -> {}", id, current_ver, latest_ver);
+            println!("{}", log_msg);
+            let _ = crate::internal_log_to_nas(log_msg, Some(master_path.clone())).await;
+            
             match install_emulator(app_handle.clone(), id.to_string(), master_path.clone()).await {
                 Ok(_) => {
                     versions[id] = serde_json::json!(latest_ver);
                 },
-                Err(e) => println!("Failed to sync {}: {}", id, e),
+                Err(e) => {
+                    let err_msg = format!("Failed to sync {}: {}", id, e);
+                    println!("{}", err_msg);
+                    let _ = crate::internal_log_to_nas(err_msg, Some(master_path.clone())).await;
+                }
             }
         }
     }
@@ -117,7 +124,7 @@ pub async fn install_emulator(
             "pcsx2-qt.exe"
         ),
         "rpcs3" => (
-            "https://github.com/RPCS3/rpcs3-binaries-win/releases/download/build-9060df60cbdfcfbd6df060660606060606060606/rpcs3_v0.0.35-17415_win64.zip", // Example, ideally latest
+            "https://github.com/RPCS3/rpcs3-binaries-win/releases/download/build-9060df60cbdfcfbd6df060660606060606060606/rpcs3_v0.0.35-17415_win64.zip",
             "RPCS3",
             "rpcs3.zip",
             "RPCS3",
@@ -137,15 +144,21 @@ pub async fn install_emulator(
     let extract_path = emu_dir.join(sub_folder);
 
     // 1. Download
-    println!("Downloading {}...", name);
-    let response = reqwest::get(url).await.map_err(|e| e.to_string())?;
-    let bytes = response.bytes().await.map_err(|e| e.to_string())?;
-    fs::write(&dest_path, bytes).map_err(|e| e.to_string())?;
+    let log_msg = format!("Downloading {}...", name);
+    println!("{}", log_msg);
+    let _ = crate::internal_log_to_nas(log_msg, Some(master_path.clone())).await;
+
+    let response = reqwest::get(url).await.map_err(|e| format!("Download error: {}", e))?;
+    let bytes = response.bytes().await.map_err(|e| format!("Byte error: {}", e))?;
+    fs::write(&dest_path, bytes).map_err(|e| format!("Write error: {}", e))?;
 
     // 2. Extract
-    println!("Extracting {}...", name);
-    let file = fs::File::open(&dest_path).map_err(|e| e.to_string())?;
-    zip_extract::extract(file, &extract_path, true).map_err(|e| e.to_string())?;
+    let log_msg = format!("Extracting {}...", name);
+    println!("{}", log_msg);
+    let _ = crate::internal_log_to_nas(log_msg, Some(master_path.clone())).await;
+
+    let file = fs::File::open(&dest_path).map_err(|e| format!("Open error: {}", e))?;
+    zip_extract::extract(file, &extract_path, true).map_err(|e| format!("Extraction failed for {}: {}", name, e))?;
 
     // 3. Cleanup
     let _ = fs::remove_file(dest_path);
@@ -153,6 +166,8 @@ pub async fn install_emulator(
     let exe_path = extract_path.join(exe_name).to_string_lossy().to_string();
     
     // 4. Register in DB
+    let log_msg = format!("{} installed successfully.", name);
+    let _ = crate::internal_log_to_nas(log_msg, Some(master_path.clone())).await;
     let pool = app_handle.state::<SqlitePool>();
     sqlx::query(
         "INSERT OR REPLACE INTO emulators (id, name, executable_path) VALUES (?, ?, ?)"

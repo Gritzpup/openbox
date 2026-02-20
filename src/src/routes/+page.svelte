@@ -40,12 +40,14 @@
     let wizardImportResults = $state([]);
     let installingStatus = $state("");
 
-    const CURRENT_VERSION = "v0.1.45";
+    const CURRENT_VERSION = "v0.1.46";
 
     function addLog(message: string) {
         const timestamp = new Date().toLocaleTimeString();
         logs = [{ time: timestamp, message }, ...logs].slice(0, 100);
-        invoke("log_to_nas", { message, nasPath: config.data_root || config.global_media_root });
+        if (config.data_root) {
+            invoke("log_to_nas", { message, nasPath: config.data_root });
+        }
     }
 
     async function loadConfig() {
@@ -235,7 +237,7 @@
     }
 
     async function handleFileDrop(paths) {
-        addLog(`File drop detected: ${paths.length} items`);
+        addLog(`[File Drop] Detected ${paths.length} items: ${paths.join(', ')}`);
         wizardFiles = paths;
         importWizardOpen = true;
         wizardStep = 1;
