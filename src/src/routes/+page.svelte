@@ -260,7 +260,7 @@
             </button>
             <div class="title-wrap">
                 <h2>TurboLaunch</h2>
-                <span class="version-tag">v0.1.15</span>
+                <span class="version-tag">v0.1.16</span>
             </div>
         </div>
 
