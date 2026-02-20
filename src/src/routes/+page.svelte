@@ -32,15 +32,41 @@
     let emulatorSetupOpen = $state(false);
     let wizardStep = $state(1); 
     let wizardFiles = $state([]);
-    let wizardPlatform = $state(null);
+    let wizardPlatform = $state("");
     let wizardEmulator = $state(null);
-    let wizardScrape3D = $state(true);
-    let wizardScrapeCart = $state(true);
-    let wizardScrapeVideo = $state(true);
+    let wizardFileAction = $state("link"); // link, copy, move
+    let wizardSearchMetadata = $state(true);
+    let wizardMediaOptions = $state({
+        box_3d: true,
+        box_front: true,
+        box_back: false,
+        flyer_front: false,
+        flyer_back: false,
+        arcade_cabinet: false,
+        arcade_marquee: false,
+        arcade_board: false,
+        arcade_control_panel: false,
+        arcade_controls_info: false,
+        banner: false,
+        bigbox_video: true,
+        gameplay_video: true,
+        clear_logo: true,
+        fanart: true,
+        disc: true
+    });
     let wizardImportResults = $state([]);
     let installingStatus = $state("");
 
-    const CURRENT_VERSION = "v0.1.59";
+    const STANDARD_PLATFORMS = [
+        "Sony PlayStation", "Sony PlayStation 2", "Sony PlayStation 3", "Sony PlayStation Portable",
+        "Nintendo Entertainment System", "Super Nintendo Entertainment System", "Nintendo 64", 
+        "Nintendo GameCube", "Nintendo Wii", "Nintendo Wii U", "Nintendo Switch",
+        "Nintendo Game Boy", "Nintendo Game Boy Color", "Nintendo Game Boy Advance", "Nintendo DS", "Nintendo 3DS",
+        "Sega Genesis", "Sega Saturn", "Sega Dreamcast", "Sega Master System", "Sega Game Gear",
+        "Arcade", "MAME", "SNK Neo Geo AES", "Atari 2600", "Atari 5200", "Atari 7800", "PC"
+    ];
+
+    const CURRENT_VERSION = "v0.1.60";
 
     function addLog(message: string) {
         const timestamp = new Date().toLocaleTimeString();
@@ -247,13 +273,15 @@
         importWizardOpen = true;
         wizardStep = 1;
         await loadEmulators();
-        if (selectedPlatform) wizardPlatform = selectedPlatform.id;
+        // Try to auto-detect platform from files? For now just reset
+        wizardPlatform = "";
     }
 
     async function runWizardImport() {
-        wizardStep = 4;
         loading = true;
+        addLog(`Starting Import for platform: ${wizardPlatform} (${wizardFiles.length} files)`);
         try {
+            // 1. Scaffold directories on NAS
             if (config.data_root) {
                 await invoke("scaffold_platform_directories", { 
                     masterPath: config.data_root, 
@@ -261,6 +289,7 @@
                 });
             }
 
+            // 2. Link Emulator if selected
             if (wizardEmulator) {
                 await invoke("link_platform_emulator", {
                     platformId: wizardPlatform,
@@ -268,41 +297,45 @@
                     isDefault: true
                 });
             }
+
+            // 3. Perform Batch Import with File Action
             const results = [];
             for (const path of wizardFiles) {
                 const res = await invoke("batch_import", {
                     folderPath: path,
                     platformId: wizardPlatform,
+                    fileAction: wizardFileAction, // New parameter
                     mediaRoot: null 
                 });
                 
+                // 4. Media Scraping (Simple pass-through for now, can be expanded)
                 for (const title of res) {
-                    try {
-                        const scraped = await invoke("scrape_game_art", { platform: wizardPlatform, title });
-                        const mediaRoot = config.data_root || config.global_media_root;
-                        
-                        if (wizardScrape3D && scraped.box_3d_url) {
-                            const dest = `${mediaRoot}/Images/${wizardPlatform}/Box - 3D/${title}-01.png`;
-                            invoke("download_art", { url: scraped.box_3d_url, destinationPath: dest });
+                    if (wizardMediaOptions.box_3d || wizardMediaOptions.gameplay_video) {
+                        try {
+                            const scraped = await invoke("scrape_game_art", { platform: wizardPlatform, title });
+                            const mediaRoot = config.data_root || config.global_media_root;
+                            
+                            if (wizardMediaOptions.box_3d && scraped.box_3d_url) {
+                                const dest = `${mediaRoot}/Images/${wizardPlatform}/Box - 3D/${title}-01.png`;
+                                invoke("download_art", { url: scraped.box_3d_url, destinationPath: dest });
+                            }
+                            if (wizardMediaOptions.gameplay_video && scraped.video_url) {
+                                const dest = `${mediaRoot}/Videos/${wizardPlatform}/${title}-01.mp4`;
+                                invoke("download_art", { url: scraped.video_url, destinationPath: dest });
+                            }
+                        } catch (scrapeErr) {
+                            addLog(`Download failed for ${title}: ${scrapeErr}`);
                         }
-                        if (wizardScrapeCart && scraped.cart_3d_url) {
-                            const dest = `${mediaRoot}/Images/${wizardPlatform}/Cart - 3D/${title}-01.png`;
-                            invoke("download_art", { url: scraped.cart_3d_url, destinationPath: dest });
-                        }
-                        if (wizardScrapeVideo && scraped.video_url) {
-                            const dest = `${mediaRoot}/Videos/${wizardPlatform}/${title}-01.mp4`;
-                            invoke("download_art", { url: scraped.video_url, destinationPath: dest });
-                        }
-                    } catch (scrapeErr) {
-                        addLog(`Download failed for ${title}: ${scrapeErr}`);
                     }
                 }
                 results.push(...res);
             }
             wizardImportResults = results;
+            wizardStep = 5; // Success!
             await loadPlatforms();
         } catch (e) {
             addLog("Import failed: " + e);
+            alert("Import failed: " + e);
         } finally {
             loading = false;
         }
@@ -479,49 +512,152 @@
 
         {#if importWizardOpen}
             <div class="wizard-overlay">
-                <div class="wizard-card">
-                    <header><h2>Import Wizard</h2><button class="btn-close" onclick={() => importWizardOpen = false}>&times;</button></header>
-                    <div class="steps">
-                        <div class="step {wizardStep >= 1 ? 'active' : ''}"></div>
-                        <div class="step {wizardStep >= 2 ? 'active' : ''}"></div>
-                        <div class="step {wizardStep >= 3 ? 'active' : ''}"></div>
-                        <div class="step {wizardStep >= 4 ? 'active' : ''}"></div>
+                <div class="wizard-card large-wizard">
+                    <header>
+                        <h2>Import Games Wizard</h2>
+                        <button class="btn-close" onclick={() => importWizardOpen = false}>&times;</button>
+                    </header>
+                    
+                    <div class="wizard-progress-bar">
+                        <div class="step {wizardStep >= 1 ? 'active' : ''}"><span>1</span><label>Platform</label></div>
+                        <div class="step {wizardStep >= 2 ? 'active' : ''}"><span>2</span><label>Emulator</label></div>
+                        <div class="step {wizardStep >= 3 ? 'active' : ''}"><span>3</span><label>Files</label></div>
+                        <div class="step {wizardStep >= 4 ? 'active' : ''}"><span>4</span><label>Media</label></div>
+                        <div class="step {wizardStep >= 5 ? 'active' : ''}"><span>5</span><label>Finish</label></div>
                     </div>
+
                     <div class="step-content">
                         {#if wizardStep === 1}
-                            <p>Platform for <strong>{wizardFiles.length}</strong> items:</p>
-                            <select bind:value={wizardPlatform}>
-                                <option value={null}>Select...</option>
-                                {#each platforms as p}<option value={p.id}>{p.name}</option>{/each}
-                            </select>
-                            <button class="btn-primary" onclick={() => wizardStep = 2} disabled={!wizardPlatform}>Next</button>
+                            <div class="step-inner">
+                                <h3>What platform are you importing games for?</h3>
+                                <p>Select the platform that these games belong to.</p>
+                                <div class="selection-box">
+                                    <select bind:value={wizardPlatform} size="10">
+                                        {#each STANDARD_PLATFORMS as p}
+                                            <option value={p}>{p}</option>
+                                        {/each}
+                                    </select>
+                                </div>
+                                <div class="wizard-actions">
+                                    <button class="btn-secondary" onclick={() => importWizardOpen = false}>Cancel</button>
+                                    <button class="btn-primary" onclick={() => wizardStep = 2} disabled={!wizardPlatform}>Next &gt;</button>
+                                </div>
+                            </div>
+
                         {:else if wizardStep === 2}
-                            <p>Select Emulator:</p>
-                            <select bind:value={wizardEmulator}>
-                                <option value={null}>None</option>
-                                {#each emulators as emu}<option value={emu.id}>{emu.name}</option>{/each}
-                            </select>
-                            <div class="or-divider">OR</div>
-                            <button class="btn-retroarch" onclick={runAutoEmulatorSetup}>🚀 Auto-Setup All Emulators</button>
-                            <div class="wizard-actions">
-                                <button class="btn-back" onclick={() => wizardStep = 1}>Back</button>
-                                <button class="btn-primary" onclick={() => wizardStep = 3}>Next</button>
+                            <div class="step-inner">
+                                <h3>Select an Emulator</h3>
+                                <p>Which emulator should be used to launch these games?</p>
+                                <div class="selection-box">
+                                    <select bind:value={wizardEmulator} size="8">
+                                        <option value={null}>-- None / Manual Setup --</option>
+                                        {#each emulators as emu}
+                                            <option value={emu.id}>{emu.name}</option>
+                                        {/each}
+                                    </select>
+                                </div>
+                                <div class="or-divider">OR</div>
+                                <button class="btn-retroarch" onclick={runAutoEmulatorSetup}>🚀 Auto-Setup Recommended Emulators</button>
+                                <div class="wizard-actions">
+                                    <button class="btn-secondary" onclick={() => wizardStep = 1}>&lt; Back</button>
+                                    <button class="btn-primary" onclick={() => wizardStep = 3}>Next &gt;</button>
+                                </div>
                             </div>
+
                         {:else if wizardStep === 3}
-                            <h3>Select Art to Scrape</h3>
-                            <div class="art-options">
-                                <label class="checkbox"><input type="checkbox" bind:checked={wizardScrape3D} /> 3D Box Art</label>
-                                <label class="checkbox"><input type="checkbox" bind:checked={wizardScrapeCart} /> 3D Cartridge Art</label>
-                                <label class="checkbox"><input type="checkbox" bind:checked={wizardScrapeVideo} /> Gameplay Videos</label>
+                            <div class="step-inner">
+                                <h3>File Management</h3>
+                                <p>How should OpenBox handle your game files?</p>
+                                <div class="radio-group">
+                                    <label class="radio-card" class:selected={wizardFileAction === 'link'}>
+                                        <input type="radio" bind:group={wizardFileAction} value="link" />
+                                        <div class="radio-info">
+                                            <strong>Use files in their current location</strong>
+                                            <span>OpenBox will link to the files where they are now. Use this for NAS shares.</span>
+                                        </div>
+                                    </label>
+                                    <label class="radio-card" class:selected={wizardFileAction === 'copy'}>
+                                        <input type="radio" bind:group={wizardFileAction} value="copy" />
+                                        <div class="radio-info">
+                                            <strong>Copy files to my OpenBox games folder</strong>
+                                            <span>Recommended. Creates a duplicate in {config.data_root}/Games.</span>
+                                        </div>
+                                    </label>
+                                    <label class="radio-card" class:selected={wizardFileAction === 'move'}>
+                                        <input type="radio" bind:group={wizardFileAction} value="move" />
+                                        <div class="radio-info">
+                                            <strong>Move files into my OpenBox games folder</strong>
+                                            <span>Moves the files from their current location to your NAS.</span>
+                                        </div>
+                                    </label>
+                                </div>
+                                <div class="wizard-actions">
+                                    <button class="btn-secondary" onclick={() => wizardStep = 2}>&lt; Back</button>
+                                    <button class="btn-primary" onclick={() => wizardStep = 4}>Next &gt;</button>
+                                </div>
                             </div>
-                            <div class="wizard-actions">
-                                <button class="btn-back" onclick={() => wizardStep = 2}>Back</button>
-                                <button class="btn-primary" onclick={runWizardImport}>Import Now</button>
-                            </div>
+
                         {:else if wizardStep === 4}
-                            <h3>Success!</h3>
-                            <p>Added {wizardImportResults.length} games to your NAS library.</p>
-                            <button class="btn-primary" onclick={() => importWizardOpen = false}>Close</button>
+                            <div class="step-inner">
+                                <h3>Metadata & Media</h3>
+                                <div class="metadata-toggle">
+                                    <label class="checkbox-large">
+                                        <input type="checkbox" bind:checked={wizardSearchMetadata} />
+                                        <span>Search for game information in local metadata database</span>
+                                    </label>
+                                </div>
+                                
+                                <p>How would you like to download images for your games?</p>
+                                <div class="media-grid-scroll">
+                                    <div class="media-column">
+                                        <h4>Marketing & Box Art</h4>
+                                        <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.box_3d} /> Box - 3D</label>
+                                        <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.box_front} /> Box - Front</label>
+                                        <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.box_back} /> Box - Back</label>
+                                        <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.flyer_front} /> Advertisement Flyer - Front</label>
+                                        <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.flyer_back} /> Advertisement Flyer - Back</label>
+                                        <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.banner} /> Banner</label>
+                                    </div>
+                                    <div class="media-column">
+                                        <h4>Arcade Specific</h4>
+                                        <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.arcade_cabinet} /> Arcade - Cabinet</label>
+                                        <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.arcade_marquee} /> Arcade - Marquee</label>
+                                        <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.arcade_board} /> Arcade - Circuit Board</label>
+                                        <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.arcade_control_panel} /> Arcade - Control Panel</label>
+                                        <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.arcade_controls_info} /> Arcade - Controls Info</label>
+                                    </div>
+                                    <div class="media-column">
+                                        <h4>Video & In-Game</h4>
+                                        <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.bigbox_video} /> Big Box Cinematic Video</label>
+                                        <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.gameplay_video} /> Gameplay Video</label>
+                                        <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.clear_logo} /> Clear Logo</label>
+                                        <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.fanart} /> Fanart - Background</label>
+                                        <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.disc} /> Disc / Cartridge Media</label>
+                                    </div>
+                                </div>
+                                <div class="wizard-actions">
+                                    <button class="btn-secondary" onclick={() => wizardStep = 3}>&lt; Back</button>
+                                    <button class="btn-primary" onclick={runWizardImport}>Import Now</button>
+                                </div>
+                            </div>
+
+                        {:else if wizardStep === 5}
+                            <div class="step-inner success-step">
+                                <div class="icon-big">✅</div>
+                                <h3>Import Complete!</h3>
+                                <p>Successfully processed <strong>{wizardImportResults.length}</strong> games for <strong>{wizardPlatform}</strong>.</p>
+                                <div class="import-summary">
+                                    {#each wizardImportResults.slice(0, 5) as item}
+                                        <div class="summary-item">imported: {item}</div>
+                                    {/each}
+                                    {#if wizardImportResults.length > 5}
+                                        <div class="summary-more">...and {wizardImportResults.length - 5} more</div>
+                                    {/if}
+                                </div>
+                                <div class="wizard-actions">
+                                    <button class="btn-primary" onclick={() => importWizardOpen = false}>Finish</button>
+                                </div>
+                            </div>
                         {/if}
                     </div>
                 </div>
@@ -691,4 +827,48 @@
     .art-options { display: flex; flex-direction: column; gap: 15px; margin: 20px 0; text-align: left; }
     table { width: 100%; border-collapse: collapse; margin-top: 20px; }
     td { padding: 12px; border-bottom: 1px solid #282828; }
+
+    /* Large Wizard Overhaul */
+    .large-wizard { width: 800px; max-width: 90vw; max-height: 85vh; display: flex; flex-direction: column; }
+    .wizard-progress-bar { display: flex; justify-content: space-between; padding: 20px 40px; background: #181818; border-bottom: 1px solid #333; }
+    .wizard-progress-bar .step { flex: 1; text-align: center; position: relative; color: #555; }
+    .wizard-progress-bar .step span { width: 30px; height: 30px; border-radius: 50%; background: #333; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; font-weight: bold; border: 2px solid transparent; z-index: 2; position: relative; }
+    .wizard-progress-bar .step label { font-size: 0.7rem; text-transform: uppercase; font-weight: 600; }
+    .wizard-progress-bar .step.active { color: #3b82f6; }
+    .wizard-progress-bar .step.active span { background: #3b82f6; color: white; border-color: #1e1e1e; }
+    .wizard-progress-bar .step::after { content: ''; position: absolute; top: 15px; left: 50%; width: 100%; height: 2px; background: #333; z-index: 1; }
+    .wizard-progress-bar .step:last-child::after { display: none; }
+    
+    .step-content { flex: 1; overflow-y: auto; padding: 30px 40px; text-align: left; }
+    .step-inner h3 { margin-bottom: 10px; color: #fff; font-size: 1.4rem; }
+    .step-inner p { color: #aaa; margin-bottom: 25px; }
+    
+    .selection-box select { width: 100%; background: #121212; border: 1px solid #333; color: white; border-radius: 8px; padding: 10px; outline: none; }
+    .selection-box option { padding: 10px; border-bottom: 1px solid #181818; }
+    .selection-box option:hover { background: #3b82f6; }
+
+    .radio-group { display: flex; flex-direction: column; gap: 15px; }
+    .radio-card { display: flex; align-items: center; gap: 20px; background: #181818; border: 1px solid #333; padding: 20px; border-radius: 12px; cursor: pointer; transition: all 0.2s; }
+    .radio-card:hover { border-color: #444; background: #1c1c1c; }
+    .radio-card.selected { border-color: #3b82f6; background: rgba(59, 130, 246, 0.1); }
+    .radio-card strong { display: block; font-size: 1rem; color: #fff; }
+    .radio-card span { font-size: 0.85rem; color: #888; }
+    .radio-card input { transform: scale(1.5); }
+
+    .media-grid-scroll { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; background: #121212; padding: 20px; border-radius: 12px; border: 1px solid #333; }
+    .media-column h4 { font-size: 0.8rem; color: #3b82f6; text-transform: uppercase; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 5px; }
+    .media-column .checkbox { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; margin-bottom: 10px; cursor: pointer; color: #ddd; }
+    .metadata-toggle { margin-bottom: 30px; background: #181818; padding: 20px; border-radius: 12px; border: 1px solid #333; }
+    .checkbox-large { display: flex; align-items: center; gap: 15px; font-weight: bold; color: #fff; cursor: pointer; }
+    .checkbox-large input { width: 20px; height: 20px; }
+
+    .wizard-actions { margin-top: 40px; display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid #333; padding-top: 25px; }
+    .btn-secondary { background: #333; color: #eee; border: none; padding: 10px 25px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    .btn-secondary:hover { background: #444; }
+
+    .success-step { text-align: center; }
+    .icon-big { font-size: 5rem; margin-bottom: 20px; }
+    .import-summary { background: #000; padding: 20px; border-radius: 8px; font-family: monospace; font-size: 0.8rem; text-align: left; max-height: 200px; overflow-y: auto; color: #0f0; border: 1px solid #222; }
+    .summary-item { margin-bottom: 4px; }
+    .summary-more { color: #888; margin-top: 10px; font-style: italic; }
 </style>

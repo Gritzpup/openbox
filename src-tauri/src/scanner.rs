@@ -162,9 +162,24 @@ pub async fn batch_import(
     app_handle: tauri::AppHandle,
     folder_path: String,
     platform_id: String,
+    file_action: String, // "link", "copy", "move"
     media_root: Option<String>,
 ) -> Result<Vec<String>, String> {
     let pool = app_handle.state::<SqlitePool>();
+    let config_state = tauri::async_runtime::block_on(async {
+        let app_dir = app_handle.path().app_local_data_dir().unwrap();
+        crate::config::load_config(&app_dir).await.unwrap()
+    });
+
+    let master_games_dir = if let Some(ref root) = config_state.data_root {
+        let p = PathBuf::from(root).join("Games").join(&platform_id);
+        if !p.exists() {
+            fs::create_dir_all(&p).map_err(|e| e.to_string())?;
+        }
+        Some(p)
+    } else {
+        None
+    };
 
     // Update platform media root if provided
     if let Some(ref root) = media_root {
@@ -204,15 +219,31 @@ pub async fn batch_import(
                     let title = p.file_stem().unwrap().to_string_lossy().to_string();
                     let id = format!("{}-{}", platform_id, title).replace(" ", "-").to_lowercase();
                     
+                    let mut final_file_path = p.to_path_buf();
+
+                    // Handle File Operations
+                    if let Some(ref dest_dir) = master_games_dir {
+                        if file_action == "copy" || file_action == "move" {
+                            let dest_path = dest_dir.join(p.file_name().unwrap());
+                            if !dest_path.exists() {
+                                if file_action == "copy" {
+                                    fs::copy(&p, &dest_path).map_err(|e| e.to_string())?;
+                                } else {
+                                    fs::rename(&p, &dest_path).map_err(|e| e.to_string())?;
+                                }
+                            }
+                            final_file_path = dest_path;
+                        }
+                    }
+
                     // Add to DB
-                    let pool = app_handle.state::<SqlitePool>();
                     sqlx::query(
                         "INSERT OR IGNORE INTO games (id, platform_id, title, file_path) VALUES (?, ?, ?, ?)"
                     )
                     .bind(&id)
                     .bind(&platform_id)
                     .bind(&title)
-                    .bind(p.to_string_lossy().to_string())
+                    .bind(final_file_path.to_string_lossy().to_string())
                     .execute(&*pool)
                     .await
                     .map_err(|e| e.to_string())?;
