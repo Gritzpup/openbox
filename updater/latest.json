@@ -6,6 +6,10 @@
     "windows-x86_64": {
       "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUTkxML3FSOW1WejJPeCsvNEo5NzlzTUJlY2dOWnhWTEtWTHBQTjh3bEt3aFk1azdnMVJyMEZCRnk1bmN6VGZ3STM4bitWY3BwUkZjdHF3eGp4d3l6ZStKSnJ2L3FwVXdvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcxNTc0NDE1CWZpbGU6VHVyYm9MYXVuY2hfMC4xLjUwX3g2NC1zZXR1cC5leGUKNHM1ZzZDbmhUaExRSDQ1Mk9DUXptKzZoc2NDUGt6YnZqcTZGTnJDNlNwZ2ZNTEpybkp5YVZ5NDNucXhUNjFwbXZ6R1l2Qi8xWCtTdGszd0VUc0NLQ1E9PQo=",
       "url": "https://github.com/Gritzpup/openbox/releases/download/v0.1.50/TurboLaunch_0.1.50_x64-setup.exe"
+    },
+    "linux-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUTkxML3FSOW1Wei83UlBHVEdWSzU3SVg2TVdBaHJ5Q1hubmxibHIrcE5JNVZYdVhqcGd0aDM3VTdzZzVZYVpVUVdCUTNrYlNpQ2xQYklNOEMyVko4UkZ3M3NUNGFEYlFnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcxNTc0NzM4CWZpbGU6VHVyYm9MYXVuY2hfMC4xLjUwX2FtZDY0LkFwcEltYWdlCnVEYmJsTWQ0dVgxMS9pYnViZ3hZNVRiZ3JXWEwwRElJckw5MzkzdW9XODdQa3BsdVc4ZUl5T2ZzTkxrZm1PV3hqV0tvUEE2KzNXeGlkZHJFOXRlQUJRPT0K",
+      "url": "https://github.com/Gritzpup/openbox/releases/download/v0.1.50/TurboLaunch_0.1.50_amd64.AppImage"
     }
   }
 }
