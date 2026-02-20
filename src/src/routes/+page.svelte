@@ -238,7 +238,7 @@
 
     onMount(async () => {
         await loadConfig();
-        autoDetect();
+        // autoDetect removed per user request
         
         checkForUpdates();
         const updateInterval = setInterval(checkForUpdates, 30000);
@@ -266,7 +266,7 @@
             </button>
             <div class="title-wrap">
                 <h2>TurboLaunch</h2>
-                <span class="version-tag">v0.1.12</span>
+                <span class="version-tag">v0.1.13</span>
             </div>
         </div>
 
@@ -293,8 +293,9 @@
 
         <div class="sidebar-footer">
             {#if updateStatus}
-                <div class="update-banner">
-                    {updateStatus}
+                <div class="update-status-minimal">
+                    <div class="mini-spinner"></div>
+                    <span>{updateStatus}</span>
                 </div>
             {/if}
         </div>
@@ -545,22 +546,30 @@
 
     .sidebar-footer {
         margin-top: auto;
+        padding-top: 10px;
+        border-top: 1px solid #222;
     }
 
-    .update-banner {
-        background: #3b82f6;
-        color: white;
+    .update-status-minimal {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: #3b82f6;
         font-size: 0.7rem;
-        padding: 8px;
-        border-radius: 6px;
-        text-align: center;
-        animation: pulse 2s infinite;
+        padding: 5px;
     }
 
-    @keyframes pulse {
-        0% { opacity: 1; }
-        50% { opacity: 0.7; }
-        100% { opacity: 1; }
+    .mini-spinner {
+        width: 12px;
+        height: 12px;
+        border: 2px solid rgba(59, 130, 246, 0.2);
+        border-left-color: #3b82f6;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
     }
 
     .platform-list {
