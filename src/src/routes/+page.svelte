@@ -17,6 +17,7 @@
     let lastChecked = $state("");
     let isUpdating = $state(false);
     let isChecking = $state(false);
+    let isDragging = $state(false);
     let updateError = $state("");
     let logs = $state([]);
 
@@ -39,7 +40,7 @@
     let wizardImportResults = $state([]);
     let installingStatus = $state("");
 
-    const CURRENT_VERSION = "v0.1.42";
+    const CURRENT_VERSION = "v0.1.43";
 
     function addLog(message: string) {
         const timestamp = new Date().toLocaleTimeString();
@@ -337,7 +338,7 @@
         await loadConfig();
         if (config.data_root) {
             await loadPlatforms();
-            invoke("report_version", { version: CURRENT_VERSION, nasPath: config.data_root });
+            invoke("report_version", { version: CURRENT_VERSION, nasPath: config.data_root, error: null });
         }
         
         checkForUpdates();
@@ -345,7 +346,12 @@
         
         const unlisten = await getCurrentWindow().onFileDropEvent((event) => {
             if (event.payload.type === 'drop') {
+                isDragging = false;
                 handleFileDrop(event.payload.paths);
+            } else if (event.payload.type === 'hover') {
+                isDragging = true;
+            } else if (event.payload.type === 'cancel') {
+                isDragging = false;
             }
         });
 
@@ -357,6 +363,16 @@
 </script>
 
 <div class="app">
+    {#if isDragging}
+        <div class="drop-overlay">
+            <div class="drop-card">
+                <div class="icon">📥</div>
+                <h2>Drop ROMs to Import</h2>
+                <p>TurboLaunch will automatically setup art and emulators.</p>
+            </div>
+        </div>
+    {/if}
+
     <aside class="sidebar">
         <div class="header">
             <button class="hamburger" onclick={() => menuOpen = !menuOpen} aria-label="Menu">
@@ -567,7 +583,7 @@
 
 <style>
     :global(body) { margin: 0; padding: 0; background: #121212; color: #e0e0e0; font-family: 'Segoe UI', system-ui, sans-serif; }
-    .app { display: flex; height: 100vh; overflow: hidden; }
+    .app { display: flex; height: 100vh; overflow: hidden; position: relative; }
     .sidebar { width: 280px; background: #181818; padding: 20px; border-right: 1px solid #282828; display: flex; flex-direction: column; gap: 20px; position: relative; }
     .sidebar .header { display: flex; align-items: center; gap: 15px; }
     .hamburger { background: none; border: none; cursor: pointer; display: flex; flex-direction: column; gap: 4px; }
@@ -603,6 +619,23 @@
         cursor: pointer;
         font-size: 0.6rem;
     }
+
+    .drop-overlay {
+        position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(59, 130, 246, 0.2);
+        backdrop-filter: blur(10px);
+        z-index: 5000;
+        display: flex; align-items: center; justify-content: center;
+        border: 4px dashed #3b82f6;
+        margin: 10px; border-radius: 20px;
+        pointer-events: none;
+    }
+    .drop-card {
+        background: #1e1e1e; padding: 40px; border-radius: 20px;
+        text-align: center; border: 1px solid #333;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    }
+    .drop-card .icon { font-size: 4rem; margin-bottom: 20px; }
 
     .mini-spinner { width: 10px; height: 10px; border: 2px solid rgba(255, 255, 255, 0.05); border-left-color: #333; border-radius: 50%; }
     .mini-spinner.rotating { border-left-color: #3b82f6; animation: spin 1s linear infinite; }
