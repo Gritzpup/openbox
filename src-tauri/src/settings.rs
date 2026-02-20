@@ -148,8 +148,26 @@ pub async fn install_emulator(
     println!("{}", log_msg);
     let _ = crate::internal_log_to_nas(log_msg, Some(master_path.clone())).await;
 
-    let response = reqwest::get(url).await.map_err(|e| format!("Download error: {}", e))?;
+    let client = reqwest::Client::builder()
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        .build()
+        .map_err(|e| format!("Client error: {}", e))?;
+
+    let response = client.get(url).send().await.map_err(|e| format!("Download error: {}", e))?;
+    let status = response.status();
+    if !status.is_success() {
+        return Err(format!("Failed to download {}: HTTP {}", name, status));
+    }
+
     let bytes = response.bytes().await.map_err(|e| format!("Byte error: {}", e))?;
+    
+    if bytes.len() < 1024 * 1024 {
+        return Err(format!("Download for {} seems too small ({} bytes). Is the link dead?", name, bytes.len()));
+    }
+
+    let log_msg = format!("Download complete ({} MB). Writing to NAS...", bytes.len() / 1024 / 1024);
+    let _ = crate::internal_log_to_nas(log_msg, Some(master_path.clone())).await;
+
     fs::write(&dest_path, bytes).map_err(|e| format!("Write error: {}", e))?;
 
     // 2. Extract
