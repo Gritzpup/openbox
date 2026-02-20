@@ -8,7 +8,7 @@ PRIVATE_KEY="dW50cnVzdGVkIGNvbW1lbnQ6IHJzaWduIGVuY3J5cHRlZCBzZWNyZXQga2V5ClJXUlR
 export TAURI_SIGNING_PRIVATE_KEY="$PRIVATE_KEY"
 export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="solidsnake"
 
-echo "Building TurboLaunch v$VERSION for Windows..."
+echo "🚀 Building TurboLaunch v$VERSION for Windows..."
 
 # Build the app
 cd src-tauri
@@ -19,21 +19,26 @@ BUNDLE_DIR="target/x86_64-pc-windows-gnu/release/bundle/nsis"
 EXE_NAME="TurboLaunch_${VERSION}_x64-setup.exe"
 SIG_FILE="${BUNDLE_DIR}/${EXE_NAME}.sig"
 
-echo "Update files generated. Copying to NAS..."
+if [ ! -f "$SIG_FILE" ]; then
+    echo "⚠️ Warning: Signature file not found at $SIG_FILE"
+    SIGNATURE="manual_sign_required"
+else
+    SIGNATURE=$(cat "$SIG_FILE")
+fi
+
+echo "📦 Update files generated. Copying to NAS..."
 
 # Copy installer to NAS root
 cp "${BUNDLE_DIR}/${EXE_NAME}" /home/ubuntubox/freenas/TurboLaunch_Installer.exe
 
 # Generate latest.json for the updater
-# This matches the endpoint in tauri.conf.json
 DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-SIGNATURE=$(cat "${SIG_FILE}" || echo "manual_sign_required")
 
 mkdir -p ../updater
 cat > ../updater/latest.json << EOF
 {
   "version": "$VERSION",
-  "notes": "Drag & Drop Wizard and Auto-Updater support.",
+  "notes": "v$VERSION: Added General Settings for NAS Media Root and improved Auto-Updater.",
   "pub_date": "$DATE",
   "platforms": {
     "windows-x86_64": {
@@ -44,8 +49,10 @@ cat > ../updater/latest.json << EOF
 }
 EOF
 
-# Copy update json to NAS too just in case
+# Copy update json to NAS too
 cp ../updater/latest.json /home/ubuntubox/freenas/TurboLaunch_Update.json
 
-echo "Done! TurboLaunch v$VERSION is now on the NAS and updater metadata prepared."
-echo "IMPORTANT: To enable auto-updates, you must push the 'updater/latest.json' file to GitHub."
+echo "✅ Done! TurboLaunch v$VERSION is now on the NAS."
+echo "➡️ To finish the update trigger:"
+echo "1. git add . && git commit -m \"Release v$VERSION\" && git push"
+echo "2. gh release create v$VERSION src-tauri/target/x86_64-pc-windows-gnu/release/bundle/nsis/TurboLaunch_${VERSION}_x64-setup.exe --title \"v$VERSION\" --notes \"Automatic update\""

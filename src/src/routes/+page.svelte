@@ -10,8 +10,7 @@
     let selectedPlatform = $state(null);
     let games = $state([]);
     let loading = $state(false);
-    const defaultNasPath = "/home/ubuntubox/freenas/Emulation/Aaron Program Files (x86)/LaunchBox";
-    let launchboxRoot = $state(defaultNasPath); 
+    let config = $state({ global_media_root: "" });
     let currentView = $state("library"); 
     let menuOpen = $state(false);
     let updateStatus = $state("");
@@ -22,13 +21,29 @@
 
     // Wizard State
     let wizardOpen = $state(false);
-    let wizardStep = $state(1); // 1: Platform, 2: Media Source, 3: Scraper, 4: Import
+    let wizardStep = $state(1); 
     let wizardFiles = $state([]);
     let wizardPlatform = $state(null);
-    let wizardMediaMode = $state("standalone"); // "standalone" or "launchbox"
+    let wizardMediaMode = $state("standalone"); 
     let wizardCustomMediaRoot = $state("");
     let wizardScrape3D = $state(true);
     let wizardImportResults = $state([]);
+
+    async function loadConfig() {
+        try {
+            config = await invoke("get_config");
+        } catch (e) {
+            console.error("Failed to load config", e);
+        }
+    }
+
+    async function saveConfig() {
+        try {
+            await invoke("save_config", { config });
+        } catch (e) {
+            console.error("Failed to save config", e);
+        }
+    }
 
     async function loadPlatforms() {
         loading = true;
@@ -61,9 +76,11 @@
     async function loadThumbnail(game) {
         if (thumbnails[game.id]) return;
         
-        // Find platform media root
         const platform = platforms.find(p => p.id === game.platform_id);
-        const mediaRoot = platform?.media_root || launchboxRoot;
+        // Priority: Platform specific root -> Global Media Root -> Internal data folder
+        const mediaRoot = platform?.media_root || config.global_media_root || "";
+
+        if (!mediaRoot) return;
 
         const types = ["Box - 3D", "Box - Front"];
         const extensions = ["png", "jpg", "jpeg"];
@@ -94,7 +111,10 @@
         try {
             const detectedPath = await invoke("detect_launchbox");
             if (detectedPath) {
-                launchboxRoot = detectedPath;
+                if (!config.global_media_root) {
+                    config.global_media_root = detectedPath;
+                    await saveConfig();
+                }
                 await loadPlatforms();
             }
         } catch (e) {
@@ -106,12 +126,16 @@
 
     async function checkForUpdates() {
         try {
+            console.log("Checking for updates...");
             const update = await check();
             if (update) {
-                updateStatus = `Update v${update.version} available! Downloading...`;
+                console.log(`Update v${update.version} available!`);
+                updateStatus = `Update v${update.version} available. Downloading...`;
                 await update.downloadAndInstall();
                 updateStatus = "Update installed. Relaunching...";
                 await relaunch();
+            } else {
+                console.log("App is up to date.");
             }
         } catch (e) {
             console.error("Update check failed", e);
@@ -125,9 +149,12 @@
         if (selectedPlatform) wizardPlatform = selectedPlatform.id;
     }
 
-    async function pickMediaRoot() {
+    async function pickGlobalMediaRoot() {
         const selected = await open({ directory: true, multiple: false });
-        if (selected) wizardCustomMediaRoot = selected;
+        if (selected) {
+            config.global_media_root = selected;
+            await saveConfig();
+        }
     }
 
     async function runWizardImport() {
@@ -143,9 +170,6 @@
                 });
                 results.push(...res);
             }
-            
-            // TODO: If wizardCustomMediaRoot is set, update platform's media_root in DB
-            
             wizardImportResults = results;
             await loadPlatforms();
         } catch (e) {
@@ -155,25 +179,8 @@
         }
     }
 
-    async function scrapeGame(game) {
-        try {
-            const scraped = await invoke("scrape_game_art", {
-                platform: selectedPlatform.name,
-                title: game.title
-            });
-            if (scraped.box_3d_url) {
-                const mediaRoot = selectedPlatform?.media_root || launchboxRoot;
-                const dest = `${mediaRoot}/Images/${game.platform_id}/Box - 3D/${game.title}-01.png`;
-                await invoke("download_art", { url: scraped.box_3d_url, destinationPath: dest });
-                delete thumbnails[game.id];
-                loadThumbnail(game);
-            }
-        } catch (e) {
-            console.error("Scrape failed", e);
-        }
-    }
-
     onMount(async () => {
+        await loadConfig();
         autoDetect();
         checkForUpdates();
         
@@ -200,6 +207,7 @@
 
         {#if menuOpen}
             <div class="menu-dropdown">
+                <button onclick={() => { currentView = 'settings'; menuOpen = false; }}>General Settings</button>
                 <button onclick={() => { currentView = 'emulators'; menuOpen = false; }}>Emulator Settings</button>
                 <button onclick={() => { wizardOpen = true; wizardStep = 1; menuOpen = false; }}>Import Wizard</button>
                 <button onclick={() => { currentView = 'tools'; menuOpen = false; }}>Tools</button>
@@ -213,8 +221,8 @@
             </button>
         </div>
 
-        <div class="current-path" title={launchboxRoot}>
-            Path: {launchboxRoot.split('/').pop()}
+        <div class="current-path" title={config.global_media_root}>
+            NAS Media: {config.global_media_root ? config.global_media_root.split('/').pop() : 'Not Set'}
         </div>
 
         {#if updateStatus}
@@ -268,18 +276,18 @@
                             <div class="radio-group">
                                 <label>
                                     <input type="radio" value="standalone" bind:group={wizardMediaMode} />
-                                    Stand-alone (TurboLaunch managed)
+                                    Stand-alone (Use Global NAS Root)
                                 </label>
                                 <label>
                                     <input type="radio" value="launchbox" bind:group={wizardMediaMode} />
-                                    Existing LaunchBox Installation
+                                    Specific LaunchBox Folder
                                 </label>
                             </div>
 
                             {#if wizardMediaMode === "launchbox"}
                                 <div class="path-picker">
                                     <input bind:value={wizardCustomMediaRoot} placeholder="LaunchBox Root Folder" readonly />
-                                    <button onclick={pickMediaRoot}>Locate</button>
+                                    <button onclick={pickGlobalMediaRoot}>Locate</button>
                                 </div>
                             {/if}
 
@@ -323,14 +331,13 @@
                 </header>
                 <div class="game-grid">
                     {#each games as game}
-                        <button class="game-card" onclick={() => scrapeGame(game)}>
+                        <button class="game-card">
                             <div class="thumbnail">
                                 {#if thumbnails[game.id]}
                                     <img src={thumbnails[game.id]} alt={game.title} />
                                 {:else}
                                     <div class="placeholder">
                                         <span>{game.title}</span>
-                                        <small>Click to Scrape</small>
                                     </div>
                                 {/if}
                             </div>
@@ -348,10 +355,28 @@
                     <p>Drop any folder containing games to start the import wizard.</p>
                 </div>
             {/if}
+        {:else if currentView === 'settings'}
+            <div class="settings-view">
+                <h1>General Settings</h1>
+                <div class="setting-item">
+                    <h3>NAS / Global Media Storage</h3>
+                    <p>All videos, 3D boxes, and images will be stored here to keep your local drive clean.</p>
+                    <div class="path-picker">
+                        <input bind:value={config.global_media_root} placeholder="Not set" readonly />
+                        <button class="btn-primary" onclick={pickGlobalMediaRoot}>Select NAS Folder</button>
+                    </div>
+                </div>
+            </div>
         {:else if currentView === 'emulators'}
             <div class="settings-view">
                 <h1>Emulator Settings</h1>
                 <p>Manage your emulators here.</p>
+            </div>
+        {:else if currentView === 'tools'}
+            <div class="settings-view">
+                <h1>Tools</h1>
+                <button onclick={loadPlatforms}>Reload Library</button>
+                <button onclick={checkForUpdates}>Check for Updates Now</button>
             </div>
         {/if}
     </main>
@@ -573,11 +598,6 @@
         padding: 15px;
     }
 
-    .placeholder small {
-        color: #3b82f6;
-        margin-top: 5px;
-    }
-
     .info {
         padding: 12px;
     }
@@ -590,7 +610,7 @@
         text-overflow: ellipsis;
     }
 
-    /* Wizard Styles */
+    /* Wizard & Settings Styles */
     .wizard-overlay {
         position: absolute;
         top: 0; left: 0; right: 0; bottom: 0;
@@ -729,4 +749,19 @@
         padding: 8px;
         border-radius: 4px;
     }
+
+    .settings-view {
+        max-width: 800px;
+    }
+
+    .setting-item {
+        background: #181818;
+        padding: 20px;
+        border-radius: 12px;
+        border: 1px solid #282828;
+        margin-top: 20px;
+    }
+
+    .setting-item h3 { margin-top: 0; }
+    .setting-item p { color: #888; font-size: 0.9rem; }
 </style>

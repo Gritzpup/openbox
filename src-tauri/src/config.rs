@@ -8,7 +8,8 @@ use tauri::Manager;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AppConfig {
     pub launchbox_root: String,
-    pub media_root: String, // New field for independent media storage
+    pub media_root: String,
+    pub global_media_root: Option<String>, // Added global NAS/external media storage
     pub cache_dir: String,
     pub thumbnail_width: u32,
     pub thumbnail_height: u32,
@@ -21,6 +22,7 @@ impl Default for AppConfig {
         AppConfig {
             launchbox_root: "".to_string(),
             media_root: "".to_string(),
+            global_media_root: None,
             cache_dir: "".to_string(),
             thumbnail_width: 300,
             thumbnail_height: 400,
