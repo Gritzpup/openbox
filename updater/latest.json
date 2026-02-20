@@ -1,11 +1,11 @@
 {
-  "version": "0.1.6",
-  "notes": "v0.1.6: Added General Settings for NAS Media Root and improved Auto-Updater.",
-  "pub_date": "2026-02-20T02:45:05Z",
+  "version": "0.1.7",
+  "notes": "v0.1.7: Added General Settings for NAS Media Root and improved Auto-Updater.",
+  "pub_date": "2026-02-20T02:49:36Z",
   "platforms": {
     "windows-x86_64": {
       "signature": "manual_sign_required",
-      "url": "https://github.com/Gritzpup/openbox/releases/download/v0.1.6/TurboLaunch_0.1.6_x64-setup.exe"
+      "url": "https://github.com/Gritzpup/openbox/releases/download/v0.1.7/TurboLaunch_0.1.7_x64-setup.exe"
     }
   }
 }

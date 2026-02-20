@@ -216,7 +216,10 @@
                 <span class="bar"></span>
                 <span class="bar"></span>
             </button>
-            <h2>TurboLaunch</h2>
+            <div class="title-wrap">
+                <h2>TurboLaunch</h2>
+                <span class="version-tag">v0.1.7</span>
+            </div>
         </div>
 
         {#if menuOpen}
@@ -826,4 +829,16 @@
 
     .setting-item h3 { margin-top: 0; }
     .setting-item p { color: #888; font-size: 0.9rem; }
+
+    .title-wrap {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .version-tag {
+        font-size: 0.6rem;
+        color: #555;
+        font-weight: bold;
+        margin-top: -2px;
+    }
 </style>
