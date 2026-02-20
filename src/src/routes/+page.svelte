@@ -177,17 +177,31 @@
             const update = await check();
             if (update) {
                 isUpdating = true;
-                addLog(`Background update v${update.version} started...`);
-                await update.downloadAndInstall((progress) => {
-                    if (progress.event === 'Progress') {
-                        const percent = Math.round((progress.data.chunkLength / progress.data.contentLength) * 100);
-                        updateStatus = `v${update.version} (${percent}%)`;
-                    }
-                });
-                updateStatus = "Restarting...";
-                setTimeout(async () => { await relaunch(); }, 100);
+                addLog(`Update v${update.version} found. Downloading...`);
+                
+                try {
+                    await update.downloadAndInstall((progress) => {
+                        if (progress.event === 'Progress') {
+                            const percent = Math.round((progress.data.chunkLength / progress.data.contentLength) * 100);
+                            updateStatus = `Updating: ${percent}%`;
+                        }
+                    });
+                    
+                    updateStatus = "Restarting...";
+                    addLog("Update installation complete. Relaunching.");
+                    setTimeout(async () => { await relaunch(); }, 500);
+                } catch (installError) {
+                    addLog(`Update installation failed: ${installError}`);
+                    isUpdating = false;
+                    updateStatus = "";
+                }
             }
         } catch (e) {
+            if (e?.toString().includes("404")) {
+                // Ignore 404s if release isn't fully propagated yet
+            } else {
+                addLog("Update check error: " + e);
+            }
             isUpdating = false;
             updateStatus = "";
         }
@@ -282,7 +296,7 @@
             </button>
             <div class="title-wrap">
                 <h2>TurboLaunch</h2>
-                <span class="version-tag">v0.1.17</span>
+                <span class="version-tag">v0.1.18</span>
             </div>
         </div>
 
