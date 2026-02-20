@@ -20,7 +20,7 @@ fn greet(name: &str) -> String {
 }
 
 #[tauri::command]
-async fn report_version(version: String, nas_path: Option<String>) {
+async fn report_version(version: String, nas_path: Option<String>, error: Option<String>) {
     if let Some(path) = nas_path {
         let version_file = std::path::PathBuf::from(&path).join("active_version.json");
         let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
@@ -42,6 +42,10 @@ async fn report_version(version: String, nas_path: Option<String>) {
         data["last_seen"] = serde_json::Value::String(timestamp);
         data["os"] = serde_json::Value::String(std::env::consts::OS.to_string());
         
+        if let Some(err) = error {
+            data["last_error"] = serde_json::Value::String(err);
+        }
+
         let _ = fs::write(version_file, serde_json::to_string_pretty(&data).unwrap_or_default());
     }
 }

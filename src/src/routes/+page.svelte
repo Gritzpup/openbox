@@ -17,6 +17,7 @@
     let lastChecked = $state("");
     let isUpdating = $state(false);
     let isChecking = $state(false);
+    let updateError = $state("");
     let logs = $state([]);
 
     let emulators = $state([]);
@@ -38,7 +39,7 @@
     let wizardImportResults = $state([]);
     let installingStatus = $state("");
 
-    const CURRENT_VERSION = "v0.1.34";
+    const CURRENT_VERSION = "v0.1.35";
 
     function addLog(message: string) {
         const timestamp = new Date().toLocaleTimeString();
@@ -185,13 +186,14 @@
         
         try {
             if (config.data_root) {
-                invoke("report_version", { version: CURRENT_VERSION, nasPath: config.data_root });
+                invoke("report_version", { version: CURRENT_VERSION, nasPath: config.data_root, error: null });
             }
             
             const update = await check();
             lastChecked = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
             
             if (update) {
+                updateError = ""; 
                 isUpdating = true;
                 addLog(`Update v${update.version} found!`);
                 updateStatus = `Update v${update.version} found!`;
@@ -208,7 +210,10 @@
                     addLog("Update ready. Relaunching.");
                     setTimeout(async () => { await relaunch(); }, 300);
                 } catch (err) {
-                    addLog("Install failed: " + err);
+                    const errMsg = `Install failed: ${err}`;
+                    addLog(errMsg);
+                    updateError = errMsg;
+                    if (config.data_root) invoke("report_version", { version: CURRENT_VERSION, nasPath: config.data_root, error: errMsg });
                     isUpdating = false;
                     updateStatus = "";
                 }
@@ -219,7 +224,12 @@
             }
         } catch (e) {
             updateStatus = "";
-            if (!e?.toString().includes("404")) addLog("Check failed: " + e);
+            if (!e?.toString().includes("404")) {
+                const errMsg = `Check failed: ${e}`;
+                addLog(errMsg);
+                updateError = errMsg;
+                if (config.data_root) invoke("report_version", { version: CURRENT_VERSION, nasPath: config.data_root, error: errMsg });
+            }
         } finally {
             isChecking = false;
         }
@@ -381,6 +391,12 @@
         </nav>
 
         <div class="sidebar-footer">
+            {#if updateError}
+                <div class="update-error-msg" title={updateError}>
+                    ⚠️ Update Failed
+                    <button class="btn-tiny" onclick={resetUpdateState}>Retry</button>
+                </div>
+            {/if}
             <div class="update-status-minimal">
                 <div class="mini-spinner" class:rotating={isUpdating || isChecking}></div>
                 <div class="update-info">
@@ -564,6 +580,30 @@
     .menu-dropdown button:hover { background: #383838; color: #fff; }
     .sidebar-footer { margin-top: auto; padding-top: 10px; border-top: 1px solid #222; }
     .update-status-minimal { display: flex; align-items: center; gap: 10px; color: #555; font-size: 0.65rem; }
+    
+    .update-error-msg {
+        background: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+        font-size: 0.65rem;
+        padding: 8px;
+        border-radius: 4px;
+        margin-bottom: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    .btn-tiny {
+        background: #ef4444;
+        color: white;
+        border: none;
+        padding: 2px 6px;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 0.6rem;
+    }
+
     .mini-spinner { width: 10px; height: 10px; border: 2px solid rgba(255, 255, 255, 0.05); border-left-color: #333; border-radius: 50%; }
     .mini-spinner.rotating { border-left-color: #3b82f6; animation: spin 1s linear infinite; }
     .update-info { display: flex; flex-direction: column; }
