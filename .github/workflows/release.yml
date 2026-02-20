@@ -34,11 +34,9 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm install
-        working-directory: ./src
 
       - name: Build Svelte frontend
         run: npm run build
-        working-directory: ./src
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
@@ -50,4 +48,4 @@ jobs:
           releaseBody: 'See the assets below to download the latest version.'
           releaseDraft: true
           prerelease: false
-          projectPath: ./src
+          projectPath: .

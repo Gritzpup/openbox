@@ -1,20 +1,27 @@
-# Rust
-/src-tauri/target
-/src-tauri/gen
-
-# Node
+# Frontend
 node_modules
-/src/.svelte-kit
-/src/build
+.output
+.vercel
+.netlify
+.wrangler
+/.svelte-kit
+/build
 
-# IDE
-.vscode
-.idea
+# Rust/Tauri
+src-tauri/target
+src-tauri/gen
+src-tauri/bin
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Custom
-/src-tauri/capabilities/core.default.json
-/src-tauri/capabilities/protocol-asset.default.json
+# Env
+.env
+.env.*
+!.env.example
+!.env.test
+
+# Vite
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*

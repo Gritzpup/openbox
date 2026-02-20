@@ -1,13 +1,13 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "TurboLaunch",
-  "version": "0.1.71",
+  "version": "0.1.72",
   "identifier": "com.turbolaunch.app",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:5173",
-    "beforeBuildCommand": "cd /home/ubuntubox/github/openbox/src && npm run build",
-    "frontendDist": "../src/build"
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../build"
   },
   "app": {
     "windows": [
