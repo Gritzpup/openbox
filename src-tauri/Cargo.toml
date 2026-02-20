@@ -1,6 +1,6 @@
 [package]
 name = "turbolaunch"
-version = "0.1.38"
+version = "0.1.39"
 edition = "2021"
 
 [build-dependencies]
@@ -28,6 +28,7 @@ tauri-plugin-updater = "2.10.0"
 tauri-plugin-process = "2.3.1"
 chrono = "0.4.43"
 zip-extract = "0.4.1"
+tauri-plugin-window-state = "2.4.1"
 
 [features]
 default = []
