@@ -22,16 +22,17 @@
     let platformEmulators = $state([]);
     let thumbnails = $state({}); 
 
-    // Master Wizard State
+    // Wizard/Setup State
     let setupWizardOpen = $state(false);
     let importWizardOpen = $state(false);
+    let emulatorSetupOpen = $state(false);
     let wizardStep = $state(1); 
     let wizardFiles = $state([]);
     let wizardPlatform = $state(null);
     let wizardEmulator = $state(null);
     let wizardScrape3D = $state(true);
     let wizardImportResults = $state([]);
-    let installingRetroArch = $state(false);
+    let installingStatus = $state("");
 
     function addLog(message: string) {
         const timestamp = new Date().toLocaleTimeString();
@@ -86,23 +87,32 @@
         }
     }
 
-    async function installRetroArch() {
-        if (!config.data_root) {
-            alert("Please set a Master NAS folder in General Settings first!");
-            return;
-        }
-        installingRetroArch = true;
-        addLog("Starting RetroArch auto-install...");
+    async function runAutoEmulatorSetup() {
+        if (!config.data_root) return;
+        emulatorSetupOpen = true;
+        installingStatus = "Preparing folders...";
         try {
-            const path = await invoke("install_retroarch", { targetDir: config.data_root });
-            addLog("RetroArch installed to " + path);
+            await invoke("setup_emulator_environment", { masterPath: config.data_root });
+            
+            const toInstall = [
+                { id: "retroarch", name: "RetroArch" },
+                { id: "pcsx2", name: "PCSX2" },
+                { id: "rpcs3", name: "RPCS3" },
+                { id: "xemu", name: "xemu (Xbox)" }
+            ];
+
+            for (const emu of toInstall) {
+                installingStatus = `Installing ${emu.name}...`;
+                addLog(`Auto-installing ${emu.name}...`);
+                await invoke("install_emulator", { emuId: emu.id, masterPath: config.data_root });
+                addLog(`${emu.name} installed successfully.`);
+            }
+            
+            installingStatus = "All emulators installed!";
             await loadEmulators();
-            wizardEmulator = "retroarch";
         } catch (e) {
-            addLog("RetroArch install failed: " + e);
-            alert("Install failed: " + e);
-        } finally {
-            installingRetroArch = false;
+            addLog("Auto-setup failed: " + e);
+            installingStatus = "Error: " + e;
         }
     }
 
@@ -168,19 +178,14 @@
             if (update) {
                 isUpdating = true;
                 addLog(`Background update v${update.version} started...`);
-                
                 await update.downloadAndInstall((progress) => {
                     if (progress.event === 'Progress') {
                         const percent = Math.round((progress.data.chunkLength / progress.data.contentLength) * 100);
                         updateStatus = `v${update.version} (${percent}%)`;
                     }
                 });
-                
                 updateStatus = "Restarting...";
-                addLog("Update installed. Relaunching now.");
-                setTimeout(async () => {
-                    await relaunch();
-                }, 100); // Super fast relaunch
+                setTimeout(async () => { await relaunch(); }, 100);
             }
         } catch (e) {
             isUpdating = false;
@@ -200,7 +205,6 @@
         wizardStep = 4;
         loading = true;
         try {
-            // 1. Link Emulator if selected
             if (wizardEmulator) {
                 await invoke("link_platform_emulator", {
                     platformId: wizardPlatform,
@@ -208,14 +212,12 @@
                     isDefault: true
                 });
             }
-
-            // 2. Import Games
             const results = [];
             for (const path of wizardFiles) {
                 const res = await invoke("batch_import", {
                     folderPath: path,
                     platformId: wizardPlatform,
-                    mediaRoot: null // Use default NAS root
+                    mediaRoot: null 
                 });
                 results.push(...res);
             }
@@ -228,21 +230,41 @@
         }
     }
 
+    async function playGame(gameId) {
+        try {
+            addLog(`Attempting to launch game ${gameId}...`);
+            await invoke("launch_game", { gameId });
+        } catch (e) {
+            addLog("Launch failed: " + e);
+            alert("Launch failed: " + e);
+        }
+    }
+
+    async function linkEmulator(emuId) {
+        if (!selectedPlatform) return;
+        try {
+            await invoke("link_platform_emulator", {
+                platformId: selectedPlatform.id,
+                emulatorId: emuId,
+                isDefault: true
+            });
+            addLog(`Linked ${emuId} to ${selectedPlatform.name}`);
+            loadPlatformEmulators(selectedPlatform.id);
+        } catch (e) {
+            addLog("Failed to link emulator: " + e);
+        }
+    }
+
     onMount(async () => {
         await loadConfig();
         if (config.data_root) {
             await loadPlatforms();
         }
-        
         checkForUpdates();
         const updateInterval = setInterval(checkForUpdates, 30000);
-        
         const unlisten = await getCurrentWindow().onFileDropEvent((event) => {
-            if (event.payload.type === 'drop') {
-                handleFileDrop(event.payload.paths);
-            }
+            if (event.payload.type === 'drop') handleFileDrop(event.payload.paths);
         });
-
         return () => {
             unlisten();
             clearInterval(updateInterval);
@@ -260,7 +282,7 @@
             </button>
             <div class="title-wrap">
                 <h2>TurboLaunch</h2>
-                <span class="version-tag">v0.1.16</span>
+                <span class="version-tag">v0.1.17</span>
             </div>
         </div>
 
@@ -295,6 +317,30 @@
     </aside>
 
     <main class="content">
+        {#if setupWizardOpen}
+            <div class="wizard-overlay">
+                <div class="wizard-card welcome-card">
+                    <div class="icon">🚀</div>
+                    <h1>Welcome to TurboLaunch</h1>
+                    <p>Select a folder on your **NAS** to store your database, settings, and media. Everything will sync across all your machines.</p>
+                    <button class="btn-primary btn-large" onclick={setMasterFolder}>Select Master NAS Folder</button>
+                </div>
+            </div>
+        {/if}
+
+        {#if emulatorSetupOpen}
+            <div class="wizard-overlay">
+                <div class="wizard-card">
+                    <h2>Emulator Auto-Setup</h2>
+                    <div class="spinner"></div>
+                    <p>{installingStatus}</p>
+                    {#if installingStatus === "All emulators installed!"}
+                        <button class="btn-primary" onclick={() => emulatorSetupOpen = false}>Finish</button>
+                    {/if}
+                </div>
+            </div>
+        {/if}
+
         {#if updateStatus === "Restarting..."}
             <div class="update-overlay">
                 <div class="update-card">
@@ -305,80 +351,46 @@
             </div>
         {/if}
 
-        {#if setupWizardOpen}
-            <div class="wizard-overlay">
-                <div class="wizard-card welcome-card">
-                    <div class="icon">🚀</div>
-                    <h1>Welcome to TurboLaunch</h1>
-                    <p>To keep your collection synced across all your computers, please select a folder on your **NAS** to store your database, settings, and media.</p>
-                    <button class="btn-primary btn-large" onclick={setMasterFolder}>Select Master NAS Folder</button>
-                </div>
-            </div>
-        {/if}
-
         {#if importWizardOpen}
             <div class="wizard-overlay">
                 <div class="wizard-card">
-                    <header>
-                        <h2>Import Wizard</h2>
-                        <button class="btn-close" onclick={() => importWizardOpen = false}>&times;</button>
-                    </header>
-
+                    <header><h2>Import Wizard</h2><button class="btn-close" onclick={() => importWizardOpen = false}>&times;</button></header>
                     <div class="steps">
-                        <div class="step {wizardStep >= 1 ? 'active' : ''}">1. Platform</div>
-                        <div class="step {wizardStep >= 2 ? 'active' : ''}">2. Emulator</div>
-                        <div class="step {wizardStep >= 3 ? 'active' : ''}">3. Art</div>
-                        <div class="step {wizardStep >= 4 ? 'active' : ''}">4. Finish</div>
+                        <div class="step {wizardStep >= 1 ? 'active' : ''}"></div>
+                        <div class="step {wizardStep >= 2 ? 'active' : ''}"></div>
+                        <div class="step {wizardStep >= 3 ? 'active' : ''}"></div>
+                        <div class="step {wizardStep >= 4 ? 'active' : ''}"></div>
                     </div>
-
                     <div class="step-content">
                         {#if wizardStep === 1}
-                            <p>Select platform for <strong>{wizardFiles.length}</strong> items:</p>
+                            <p>Platform for <strong>{wizardFiles.length}</strong> items:</p>
                             <select bind:value={wizardPlatform}>
-                                <option value={null}>Select a platform...</option>
-                                {#each platforms as p}
-                                    <option value={p.id}>{p.name}</option>
-                                {/each}
+                                <option value={null}>Select...</option>
+                                {#each platforms as p}<option value={p.id}>{p.name}</option>{/each}
                             </select>
-                            <div class="wizard-actions">
-                                <button class="btn-primary" onclick={() => wizardStep = 2} disabled={!wizardPlatform}>Next &rarr;</button>
-                            </div>
+                            <button class="btn-primary" onclick={() => wizardStep = 2} disabled={!wizardPlatform}>Next</button>
                         {:else if wizardStep === 2}
-                            <p>Select emulator for <strong>{wizardPlatform}</strong>:</p>
+                            <p>Select Emulator:</p>
                             <select bind:value={wizardEmulator}>
-                                <option value={null}>None (Select later)</option>
-                                {#each emulators as emu}
-                                    <option value={emu.id}>{emu.name}</option>
-                                {/each}
+                                <option value={null}>None</option>
+                                {#each emulators as emu}<option value={emu.id}>{emu.name}</option>{/each}
                             </select>
                             <div class="or-divider">OR</div>
-                            <button class="btn-retroarch" onclick={installRetroArch} disabled={installingRetroArch}>
-                                {installingRetroArch ? 'Installing...' : '🚀 Download & Install RetroArch'}
-                            </button>
+                            <button class="btn-retroarch" onclick={runAutoEmulatorSetup}>🚀 Auto-Setup All Emulators</button>
                             <div class="wizard-actions">
-                                <button class="btn-back" onclick={() => wizardStep = 1}>&larr; Back</button>
-                                <button class="btn-primary" onclick={() => wizardStep = 3}>Next &rarr;</button>
+                                <button class="btn-back" onclick={() => wizardStep = 1}>Back</button>
+                                <button class="btn-primary" onclick={() => wizardStep = 3}>Next</button>
                             </div>
                         {:else if wizardStep === 3}
-                            <p>Scraping options:</p>
-                            <label class="checkbox">
-                                <input type="checkbox" bind:checked={wizardScrape3D} />
-                                Download 3D Boxes & Cartridges
-                            </label>
+                            <label class="checkbox"><input type="checkbox" bind:checked={wizardScrape3D} /> Download 3D Box Art</label>
                             <div class="wizard-actions">
-                                <button class="btn-back" onclick={() => wizardStep = 2}>&larr; Back</button>
+                                <button class="btn-back" onclick={() => wizardStep = 2}>Back</button>
                                 <button class="btn-primary" onclick={runWizardImport}>Import Now</button>
                             </div>
                         {:else if wizardStep === 4}
-                            <div class="results">
-                                {#if loading}
-                                    <div class="loader">Importing...</div>
-                                {:else}
-                                    <h3>Success!</h3>
-                                    <p>Added {wizardImportResults.length} games to your NAS library.</p>
-                                    <button class="btn-primary" onclick={() => importWizardOpen = false}>Close</button>
-                                {/if}
-                            </div>
+                            <h3>Success!</h3>
+                            <p>Added {wizardImportResults.length} games to your NAS library.</p>
+                            <button class="btn-primary" onclick={() => importWizardOpen = false}>Close</button>
                         {/if}
                     </div>
                 </div>
@@ -388,59 +400,35 @@
         {#if currentView === 'library'}
             {#if selectedPlatform}
                 <header class="view-header">
-                    <div class="title-area">
-                        <h1>{selectedPlatform.name}</h1>
-                        <div class="meta">
-                            <span class="count">{games.length} games</span>
-                            {#if platformEmulators.length > 0}
-                                <span class="emu-tag">using {platformEmulators[0].name}</span>
-                            {/if}
-                        </div>
-                    </div>
+                    <h1>{selectedPlatform.name} <span class="count">({games.length})</span></h1>
+                    {#if platformEmulators.length > 0}
+                        <span class="emu-tag">Default: {platformEmulators[0].name}</span>
+                    {/if}
                 </header>
                 <div class="game-grid">
                     {#each games as game}
-                        <button class="game-card">
+                        <button class="game-card" ondblclick={() => playGame(game.id)}>
                             <div class="thumbnail">
-                                {#if thumbnails[game.id]}
-                                    <img src={thumbnails[game.id]} alt={game.title} />
-                                {:else}
-                                    <div class="placeholder"><span>{game.title}</span></div>
-                                {/if}
+                                {#if thumbnails[game.id]}<img src={thumbnails[game.id]} alt={game.title} />
+                                {:else}<div class="placeholder"><span>{game.title}</span></div>{/if}
                             </div>
                             <div class="info"><h3>{game.title}</h3></div>
                         </button>
                     {/each}
                 </div>
             {:else}
-                <div class="welcome-screen">
-                    <div class="icon">📦</div>
-                    <h1>Drag & Drop ROMs Here</h1>
-                    <p>Drop any folder containing games to start the import wizard.</p>
-                </div>
+                <div class="welcome-screen"><div class="icon">📦</div><h1>Drag & Drop ROMs Here</h1></div>
             {/if}
         {:else if currentView === 'emulators'}
             <div class="settings-view">
-                <h1>Emulator Settings</h1>
-                <div class="add-emulator">
-                    <h3>Add New Emulator</h3>
-                    <input bind:value={newEmulator.id} placeholder="ID (e.g. nestopia)" />
-                    <input bind:value={newEmulator.name} placeholder="Display Name" />
-                    <div class="path-picker">
-                        <input bind:value={newEmulator.executable_path} placeholder="Executable Path" readonly />
-                        <button class="btn-small" onclick={async () => { 
-                            const s = await open({ multiple: false });
-                            if(s) newEmulator.executable_path = s;
-                        }}>Browse</button>
-                    </div>
-                    <button class="btn-save" onclick={saveEmulator}>Save Emulator</button>
-                </div>
+                <h1>Emulators</h1>
+                <button class="btn-retroarch" onclick={runAutoEmulatorSetup}>🚀 Run Auto-Setup (RetroArch, PCSX2, RPCS3, xemu)</button>
                 <div class="emulator-list">
                     <table>
                         {#each emulators as emu}
                             <tr>
                                 <td><strong>{emu.name}</strong></td>
-                                <td><button class="btn-small" onclick={() => linkEmulator(emu.id)}>Set Default</button></td>
+                                <td><button class="btn-small" onclick={() => linkEmulator(emu.id)}>Set Default for {selectedPlatform?.name || '...'}</button></td>
                             </tr>
                         {/each}
                     </table>
@@ -451,25 +439,14 @@
                 <h1>Tools & Paths</h1>
                 <div class="setting-item">
                     <h3>Master NAS Folder</h3>
-                    <p>Where your database and settings are stored.</p>
-                    <div class="path-picker">
-                        <input bind:value={config.data_root} placeholder="Not set" readonly />
-                        <button class="btn-primary" onclick={setMasterFolder}>Change</button>
-                    </div>
+                    <input bind:value={config.data_root} readonly />
+                    <button class="btn-primary" onclick={setMasterFolder}>Change</button>
                 </div>
             </div>
         {:else if currentView === 'debug'}
-            <div class="debug-view">
-                <h1>System Activity</h1>
-                <div class="log-container">
-                    {#each logs as log}
-                        <div class="log-entry">
-                            <span class="log-time">[{log.time}]</span>
-                            <span class="log-msg">{log.message}</span>
-                        </div>
-                    {/each}
-                </div>
-            </div>
+            <div class="debug-view"><h1>Debug Logs</h1><div class="log-container">
+                {#each logs as log}<div class="log-entry"><span class="log-time">[{log.time}]</span><span class="log-msg">{log.message}</span></div>{/each}
+            </div></div>
         {/if}
     </main>
 </div>
@@ -518,4 +495,6 @@
     .log-msg { color: #0f0; }
     .welcome-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; opacity: 0.5; }
     .emu-tag { background: #333; color: #aaa; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; margin-top: 5px; display: inline-block; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    td { padding: 12px; border-bottom: 1px solid #282828; }
 </style>

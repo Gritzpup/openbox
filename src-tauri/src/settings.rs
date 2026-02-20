@@ -7,47 +7,97 @@ use std::fs;
 use zip_extract;
 
 #[tauri::command]
-pub async fn install_retroarch(
+pub async fn setup_emulator_environment(
     app_handle: tauri::AppHandle,
-    target_dir: String,
+    master_path: String,
+) -> Result<(), String> {
+    let emu_dir = PathBuf::from(&master_path).join("Emulators");
+    if !emu_dir.exists() {
+        fs::create_dir_all(&emu_dir).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn install_emulator(
+    app_handle: tauri::AppHandle,
+    emu_id: String,
+    master_path: String,
 ) -> Result<String, String> {
-    let url = "https://buildbot.libretro.com/stable/1.20.0/windows/x86_64/RetroArch.zip";
-    let dest_path = PathBuf::from(&target_dir).join("RetroArch_download.zip");
-    let extract_path = PathBuf::from(&target_dir).join("RetroArch");
+    let emu_dir = PathBuf::from(&master_path).join("Emulators");
+    
+    let (url, name, zip_name, sub_folder, exe_name) = match emu_id.as_str() {
+        "retroarch" => (
+            "https://buildbot.libretro.com/stable/1.20.0/windows/x86_64/RetroArch.zip",
+            "RetroArch",
+            "RetroArch.zip",
+            "RetroArch",
+            "retroarch.exe"
+        ),
+        "pcsx2" => (
+            "https://github.com/PCSX2/pcsx2/releases/download/v2.2.0/pcsx2-v2.2.0-windows-x64-Qt.zip",
+            "PCSX2",
+            "pcsx2.zip",
+            "PCSX2",
+            "pcsx2-qt.exe"
+        ),
+        "rpcs3" => (
+            "https://github.com/RPCS3/rpcs3-binaries-win/releases/download/build-9060df60cbdfcfbd6df060660606060606060606/rpcs3_v0.0.35-17415_win64.zip", // Example, ideally latest
+            "RPCS3",
+            "rpcs3.zip",
+            "RPCS3",
+            "rpcs3.exe"
+        ),
+        "xemu" => (
+            "https://github.com/xemu-project/xemu/releases/latest/download/xemu-windows-x86_64.zip",
+            "xemu",
+            "xemu.zip",
+            "xemu",
+            "xemu.exe"
+        ),
+        _ => return Err("Unsupported emulator".to_string()),
+    };
+
+    let dest_path = emu_dir.join(zip_name);
+    let extract_path = emu_dir.join(sub_folder);
 
     // 1. Download
-    println!("Downloading RetroArch...");
+    println!("Downloading {}...", name);
     let response = reqwest::get(url).await.map_err(|e| e.to_string())?;
     let bytes = response.bytes().await.map_err(|e| e.to_string())?;
-    
-    if let Some(parent) = dest_path.parent() {
-        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-    }
     fs::write(&dest_path, bytes).map_err(|e| e.to_string())?;
 
     // 2. Extract
-    println!("Extracting RetroArch...");
+    println!("Extracting {}...", name);
     let file = fs::File::open(&dest_path).map_err(|e| e.to_string())?;
     zip_extract::extract(file, &extract_path, true).map_err(|e| e.to_string())?;
 
     // 3. Cleanup
     let _ = fs::remove_file(dest_path);
 
-    let exe_path = extract_path.join("retroarch.exe").to_string_lossy().to_string();
+    let exe_path = extract_path.join(exe_name).to_string_lossy().to_string();
     
     // 4. Register in DB
     let pool = app_handle.state::<SqlitePool>();
     sqlx::query(
         "INSERT OR REPLACE INTO emulators (id, name, executable_path) VALUES (?, ?, ?)"
     )
-    .bind("retroarch")
-    .bind("RetroArch (Auto-Installed)")
+    .bind(&emu_id)
+    .bind(name)
     .bind(&exe_path)
     .execute(&*pool)
     .await
     .map_err(|e| e.to_string())?;
 
     Ok(exe_path)
+}
+
+#[tauri::command]
+pub async fn install_retroarch(
+    app_handle: tauri::AppHandle,
+    target_dir: String,
+) -> Result<String, String> {
+    install_emulator(app_handle, "retroarch".to_string(), target_dir).await
 }
 
 #[tauri::command]

@@ -120,7 +120,7 @@ pub fn run() {
             media_cache::generate_thumbnail,
             settings::get_emulators, settings::save_emulator, settings::delete_emulator,
             settings::link_platform_emulator, settings::get_platform_emulators,
-            settings::set_data_root, settings::install_retroarch,
+            settings::set_data_root, settings::install_retroarch, settings::install_emulator, settings::setup_emulator_environment,
             scraper::scrape_game_art, scraper::download_art,
             log_to_nas
         ])
