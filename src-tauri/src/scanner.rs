@@ -158,6 +158,53 @@ pub async fn detect_launchbox() -> Result<Option<String>, String> {
 }
 
 #[tauri::command]
+pub async fn batch_import(
+    app_handle: tauri::AppHandle,
+    folder_path: String,
+    platform_id: String,
+) -> Result<Vec<String>, String> {
+    let path = Path::new(&folder_path);
+    if !path.exists() || !path.is_dir() {
+        return Err("Invalid folder path".to_string());
+    }
+
+    let mut games_found = Vec::new();
+    let extensions = ["zip", "nes", "smc", "sfc", "iso", "bin", "cue", "gba", "gbc", "n64"];
+
+    for entry in WalkDir::new(path).into_iter().filter_map(|e| e.ok()) {
+        let p = entry.path();
+        if p.is_file() {
+            if let Some(ext) = p.extension().and_then(|e| e.to_str()) {
+                if extensions.contains(&ext.to_lowercase().as_str()) {
+                    let title = p.file_stem().unwrap().to_string_lossy().to_string();
+                    let id = format!("{}-{}", platform_id, title).replace(" ", "-").to_lowercase();
+                    
+                    // Add to DB
+                    let pool = app_handle.state::<SqlitePool>();
+                    sqlx::query(
+                        "INSERT OR IGNORE INTO games (id, platform_id, title, file_path) VALUES (?, ?, ?, ?)"
+                    )
+                    .bind(&id)
+                    .bind(&platform_id)
+                    .bind(&title)
+                    .bind(p.to_string_lossy().to_string())
+                    .execute(&*pool)
+                    .await
+                    .map_err(|e| e.to_string())?;
+
+                    games_found.push(title);
+                }
+            }
+        }
+    }
+
+    // Reload library
+    crate::library::load_library(app_handle).await?;
+
+    Ok(games_found)
+}
+
+#[tauri::command]
 pub async fn start_scan(app_handle: tauri::AppHandle, launchbox_root: String) -> Result<(), String> {
     let launchbox_path = PathBuf::from(&launchbox_root);
     let db_pool = app_handle.state::<SqlitePool>();
