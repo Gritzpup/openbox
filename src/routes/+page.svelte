@@ -83,7 +83,7 @@
         "Arcade", "MAME", "SNK Neo Geo AES", "Atari 2600", "Atari 5200", "Atari 7800", "PC"
     ];
 
-    const CURRENT_VERSION = "v0.1.76";
+    const CURRENT_VERSION = "v0.1.77";
 
     function addLog(message: string) {
         const timestamp = new Date().toLocaleTimeString();
@@ -459,11 +459,16 @@
                 addLog("Starting Drag & Drop listener...");
                 const unlisten = await getCurrentWindow().onDragDropEvent((event) => {
                     console.log("DragDrop Event:", event);
-                    if (event.type === 'drop') {
-                        addLog(`File drop detected! Type: ${event.type}, Paths: ${event.paths.length}`);
+                    // Handle both Tauri 1.0 and 2.0 event structures just in case
+                    const type = event.type || (event.payload && event.payload.type);
+                    const paths = event.paths || (event.payload && event.payload.paths);
+
+                    if (type === 'drop' || type === 'dragDrop') {
+                        const pathCount = paths ? paths.length : 0;
+                        addLog(`File drop detected! Type: ${type}, Paths: ${pathCount}`);
                         isDragging = false;
-                        handleFileDrop(event.paths);
-                    } else if (event.type === 'enter' || event.type === 'over') {
+                        if (paths) handleFileDrop(paths);
+                    } else if (type === 'enter' || type === 'over' || type === 'dragEnter' || type === 'dragOver') {
                         isDragging = true;
                     } else {
                         isDragging = false;
