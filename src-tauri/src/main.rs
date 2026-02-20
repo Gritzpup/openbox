@@ -5,6 +5,7 @@ mod db;
 mod scanner;
 mod media_cache;
 mod library;
+mod settings;
 
 use tauri::{Manager};
 use std::fs;
@@ -19,6 +20,7 @@ fn greet(name: &str) -> String {
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .register_uri_scheme_protocol("game-media", move |_context: UriSchemeContext<Wry>, request| {
             // The URI will look like game-media://localhost/home/ubuntubox/...
             // We need to strip the scheme and host to get the absolute path
@@ -92,8 +94,9 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             greet, 
             config::get_config, config::save_config, scanner::start_scan, scanner::detect_launchbox,
-            library::load_library, library::get_games_for_platform, library::get_platforms, library::get_game_images,
-            media_cache::generate_thumbnail
+            library::load_library, library::get_games_for_platform, library::get_platforms, library::get_game_images, library::add_game,
+            media_cache::generate_thumbnail,
+            settings::get_emulators, settings::save_emulator, settings::delete_emulator
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

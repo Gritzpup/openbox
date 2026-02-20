@@ -157,6 +157,33 @@ pub async fn get_platforms(app_handle: tauri::AppHandle) -> Result<Vec<Platform>
     Ok(platforms)
 }
 
+#[tauri::command]
+pub async fn add_game(
+    app_handle: tauri::AppHandle,
+    id: String,
+    platform_id: String,
+    title: String,
+    file_path: String,
+) -> Result<(), String> {
+    let pool = app_handle.state::<SqlitePool>();
+    
+    sqlx::query(
+        "INSERT INTO games (id, platform_id, title, file_path) VALUES (?, ?, ?, ?)"
+    )
+    .bind(&id)
+    .bind(&platform_id)
+    .bind(&title)
+    .bind(&file_path)
+    .execute(&*pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    // Refresh memory
+    load_library(app_handle).await?;
+    
+    Ok(())
+}
+
 #[tauri::command] // Added tauri::command
 pub async fn get_game_images(app_handle: tauri::AppHandle, game_id: String) -> Result<Vec<Image>, String> {
     let library_mutex_state = app_handle.state::<tokio::sync::Mutex<Library>>();
