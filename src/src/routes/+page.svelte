@@ -40,7 +40,7 @@
     let wizardImportResults = $state([]);
     let installingStatus = $state("");
 
-    const CURRENT_VERSION = "v0.1.43";
+    const CURRENT_VERSION = "v0.1.44";
 
     function addLog(message: string) {
         const timestamp = new Date().toLocaleTimeString();
@@ -196,8 +196,7 @@
             if (update) {
                 updateError = ""; 
                 isUpdating = true;
-                addLog(`Update v${update.version} found!`);
-                updateStatus = `Update v${update.version} found!`;
+                updateStatus = `Downloading v${update.version}...`;
                 
                 try {
                     await update.downloadAndInstall((progress) => {
@@ -208,7 +207,6 @@
                     });
                     
                     updateStatus = "Restarting...";
-                    addLog("Update ready. Relaunching.");
                     setTimeout(async () => { await relaunch(); }, 300);
                 } catch (err) {
                     const errMsg = `Install failed: ${err}`;
@@ -237,6 +235,7 @@
     }
 
     async function handleFileDrop(paths) {
+        addLog(`File drop detected: ${paths.length} items`);
         wizardFiles = paths;
         importWizardOpen = true;
         wizardStep = 1;
@@ -335,6 +334,18 @@
     }
 
     onMount(async () => {
+        // Register Drop Listener immediately to prevent block
+        const unlisten = await getCurrentWindow().onFileDropEvent((event) => {
+            if (event.payload.type === 'drop') {
+                isDragging = false;
+                handleFileDrop(event.payload.paths);
+            } else if (event.payload.type === 'hover') {
+                isDragging = true;
+            } else {
+                isDragging = false;
+            }
+        });
+
         await loadConfig();
         if (config.data_root) {
             await loadPlatforms();
@@ -343,17 +354,6 @@
         
         checkForUpdates();
         const updateInterval = setInterval(checkForUpdates, 30000);
-        
-        const unlisten = await getCurrentWindow().onFileDropEvent((event) => {
-            if (event.payload.type === 'drop') {
-                isDragging = false;
-                handleFileDrop(event.payload.paths);
-            } else if (event.payload.type === 'hover') {
-                isDragging = true;
-            } else if (event.payload.type === 'cancel') {
-                isDragging = false;
-            }
-        });
 
         return () => {
             unlisten();
