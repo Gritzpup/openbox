@@ -1,11 +1,11 @@
 {
-  "version": "0.1.73",
-  "notes": "v0.1.73: Added visual build status to update spinner (Orange=Building, Red=Failed)",
-  "pub_date": "2026-02-20T14:20:37Z",
+  "version": "0.1.76",
+  "notes": "v0.1.76: Enhanced build status logic (handles queued and job-level failures)",
+  "pub_date": "2026-02-20T15:24:00Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSVHlmR2ZLTTlTTFZFZzg2cUNZODY2eitHeUVsS3FMZ2JVcGt6V1JZK1ZYZ0pEN0ZncEs0WGNlc3A5VmEzTHdmSTB0WURlNFFOU2d0eWZ3bUhWQ2NvemdCREFXZ0FWM2dvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcxNTk3MjM3CWZpbGU6VHVyYm9MYXVuY2hfMC4xLjczX3g2NC1zZXR1cC5leGUKeUZQMzlpS3JTK0d0OEdPb1ZLTWhHVDhEMm5rdXVVam9tTG50VTEwa3NMU0tLS2d6SlA2WEpHMzBuMjg3djFvS2pUNDA5UVRyVWdHTnU2d05IaHdYQXc9PQo=",
-      "url": "https://github.com/Gritzpup/openbox/releases/download/app-v0.1.73/TurboLaunch_0.1.73_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSVHlmR2ZLTTlTTFFibmdvcmcxRmxITXpmNG1zUkFWdE1VcjYwN2hWTVZTRDF1RWpoN0FTRFkvTUkrb2FQRFhoNjg3c3lUUHdTcEdETnpZbktwZWZ6S1gxR2ZLQ212cFFzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcxNjAxMDM0CWZpbGU6VHVyYm9MYXVuY2hfMC4xLjc2X3g2NC1zZXR1cC5leGUKV2tBbnJMVm5GY3UrK3Z5dm9ObnpuVnNhRExVNjFFUVh5RDFQM0xpRTZ4VWl2Z09RQTlVWWRmNTh1MjFuRytZWEhTTTBpa3h1enozNVQxb1ZGdWJaQWc9PQo=",
+      "url": "https://github.com/Gritzpup/openbox/releases/download/app-v0.1.76/TurboLaunch_0.1.76_x64-setup.exe"
     }
   }
 }
