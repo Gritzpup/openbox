@@ -77,7 +77,7 @@
         "Arcade", "MAME", "SNK Neo Geo AES", "Atari 2600", "Atari 5200", "Atari 7800", "PC"
     ];
 
-    const CURRENT_VERSION = "v0.1.63";
+    const CURRENT_VERSION = "v0.1.64";
 
     function addLog(message: string) {
         const timestamp = new Date().toLocaleTimeString();
@@ -315,28 +315,55 @@
                 const res = await invoke("batch_import", {
                     folderPath: path,
                     platformId: wizardPlatform,
-                    fileAction: wizardFileAction, // New parameter
+                    fileAction: wizardFileAction,
                     mediaRoot: null 
                 });
                 
-                // 4. Media Scraping (Simple pass-through for now, can be expanded)
+                // 4. Detailed Media Scraping & Downloading
                 for (const title of res) {
-                    if (wizardMediaOptions.box_3d || wizardMediaOptions.gameplay_video) {
-                        try {
-                            const scraped = await invoke("scrape_game_art", { platform: wizardPlatform, title });
-                            const mediaRoot = config.data_root || config.global_media_root;
-                            
-                            if (wizardMediaOptions.box_3d && scraped.box_3d_url) {
-                                const dest = `${mediaRoot}/Images/${wizardPlatform}/Box - 3D/${title}-01.png`;
-                                invoke("download_art", { url: scraped.box_3d_url, destinationPath: dest });
+                    try {
+                        const scraped = await invoke("scrape_game_art", { platform: wizardPlatform, title });
+                        const masterRoot = config.data_root || config.global_media_root;
+                        
+                        // Map Wizard Options to Scraped URLs and NAS Paths
+                        const mediaMap = [
+                            { opt: 'box_3d', url: scraped.box_3d_url, folder: 'Images', sub: 'Box - 3D', ext: 'png' },
+                            { opt: 'box_front', url: scraped.box_front_url, folder: 'Images', sub: 'Box - Front', ext: 'png' },
+                            { opt: 'box_back', url: scraped.box_back_url, folder: 'Images', sub: 'Box - Back', ext: 'png' },
+                            { opt: 'box_full', url: scraped.box_full_url, folder: 'Images', sub: 'Box - Full', ext: 'png' },
+                            { opt: 'box_front_reconstructed', url: scraped.box_front_reconstructed_url, folder: 'Images', sub: 'Box - Front Reconstructed', ext: 'png' },
+                            { opt: 'box_back_reconstructed', url: scraped.box_back_reconstructed_url, folder: 'Images', sub: 'Box - Back Reconstructed', ext: 'png' },
+                            { opt: 'flyer_front', url: scraped.flyer_front_url, folder: 'Images', sub: 'Advertisement Flyer - Front', ext: 'png' },
+                            { opt: 'flyer_back', url: scraped.flyer_back_url, folder: 'Images', sub: 'Advertisement Flyer - Back', ext: 'png' },
+                            { opt: 'banner', url: scraped.banner_url, folder: 'Images', sub: 'Banner', ext: 'png' },
+                            { opt: 'clear_logo', url: scraped.clear_logo_url, folder: 'Images', sub: 'Clear Logo', ext: 'png' },
+                            { opt: 'fanart_background', url: scraped.fanart_background_url, folder: 'Images', sub: 'Fanart - Background', ext: 'png' },
+                            { opt: 'disc', url: scraped.disc_url, folder: 'Images', sub: 'Disc', ext: 'png' },
+                            { opt: 'cart_3d', url: scraped.cart_3d_url, folder: 'Images', sub: 'Cart - 3D', ext: 'png' },
+                            { opt: 'cart_front', url: scraped.cart_front_url, folder: 'Images', sub: 'Cart - Front', ext: 'png' },
+                            { opt: 'cart_back', url: scraped.cart_back_url, folder: 'Images', sub: 'Cart - Back', ext: 'png' },
+                            { opt: 'arcade_cabinet', url: scraped.arcade_cabinet_url, folder: 'Images', sub: 'Arcade - Cabinet', ext: 'png' },
+                            { opt: 'arcade_marquee', url: scraped.arcade_marquee_url, folder: 'Images', sub: 'Arcade - Marquee', ext: 'png' },
+                            { opt: 'arcade_board', url: scraped.arcade_board_url, folder: 'Images', sub: 'Arcade - Circuit Board', ext: 'png' },
+                            { opt: 'arcade_control_panel', url: scraped.arcade_control_panel_url, folder: 'Images', sub: 'Arcade - Control Panel', ext: 'png' },
+                            { opt: 'arcade_controls_info', url: scraped.arcade_controls_info_url, folder: 'Images', sub: 'Arcade - Controls Info', ext: 'png' },
+                            { opt: 'screenshot_gameplay', url: scraped.screenshot_gameplay_url, folder: 'Images', sub: 'Screenshot - Gameplay', ext: 'png' },
+                            { opt: 'screenshot_title', url: scraped.screenshot_title_url, folder: 'Images', sub: 'Screenshot - Game Title', ext: 'png' },
+                            { opt: 'screenshot_select', url: scraped.screenshot_select_url, folder: 'Images', sub: 'Screenshot - Game Select', ext: 'png' },
+                            { opt: 'screenshot_gameover', url: scraped.screenshot_gameover_url, folder: 'Images', sub: 'Screenshot - Game Over', ext: 'png' },
+                            { opt: 'screenshot_scores', url: scraped.screenshot_scores_url, folder: 'Images', sub: 'Screenshot - High Scores', ext: 'png' },
+                            { opt: 'bigbox_video', url: scraped.bigbox_video_url, folder: 'Videos', sub: 'Video - Big Box Cinematic', ext: 'mp4' },
+                            { opt: 'gameplay_video', url: scraped.gameplay_video_url, folder: 'Videos', sub: 'Video - Gameplay', ext: 'mp4' }
+                        ];
+
+                        for (const m of mediaMap) {
+                            if (wizardMediaOptions[m.opt] && m.url) {
+                                const dest = `${masterRoot}/${m.folder}/${wizardPlatform}/${m.sub}/${title}-01.${m.ext}`;
+                                invoke("download_art", { url: m.url, destinationPath: dest });
                             }
-                            if (wizardMediaOptions.gameplay_video && scraped.video_url) {
-                                const dest = `${mediaRoot}/Videos/${wizardPlatform}/${title}-01.mp4`;
-                                invoke("download_art", { url: scraped.video_url, destinationPath: dest });
-                            }
-                        } catch (scrapeErr) {
-                            addLog(`Download failed for ${title}: ${scrapeErr}`);
                         }
+                    } catch (scrapeErr) {
+                        addLog(`Download failed for ${title}: ${scrapeErr}`);
                     }
                 }
                 results.push(...res);
