@@ -1,15 +1,15 @@
 {
-  "version": "0.1.52",
-  "notes": "v0.1.52: Security key reset to fix updater signature verification.",
-  "pub_date": "2026-02-20T08:26:28Z",
+  "version": "0.1.53",
+  "notes": "v0.1.53: Fixed security keys and restored stable update flow.",
+  "pub_date": "2026-02-20T08:36:37Z",
   "platforms": {
     "windows-x86_64": {
       "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUTkxML3FSOW1WejVOTDNmd1phK2dWRWRxdldsVlBkK0dyTXF1VW4rZHM5QmdNSTBHNXU3NDA0VVA1UVo1RWVGOXVYcWNud0NHVi9rYk02RTAxUXVnWXpJYnVTVk0rNUFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcxNTc1MTExCWZpbGU6VHVyYm9MYXVuY2hfMC4xLjUwX3g2NC1zZXR1cC5leGUKMmI3dGN2MnlxUzN0T2FKM0xIMUxVWFNWK0c5RkRHR1lqTklvTzhtQ3ZNbm1EaXhwczlwTlh1cjBQaVNMS2J4OGhDL1hHNHN4YzBiNlM5Tmt5KzlSQkE9PQo=",
       "url": "https://github.com/Gritzpup/openbox/releases/download/v0.1.50/TurboLaunch_0.1.50_x64-setup.exe"
     },
     "linux-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSMGZueEwvUlRSNnRnWkhyS3lXNU9pWXd6c09kaTFlK2dIZC9qYWVyZlBqcnYwN3VPQ2daNW9jczIrVEZSY203bDh2K2JTTmlmTzFoQjhIdkMySWNkSW92WFQ0RHFLb3dZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcxNTc1OTg4CWZpbGU6VHVyYm9MYXVuY2hfMC4xLjUyX2FtZDY0LkFwcEltYWdlCm5rakpXMGpHRTcwTXV6dmdqNTRxRG1nb2Z4dFhCZlZkankxU1o4UCs2WlpjbGxIaEtGbXFPNXBmait4UWFCTnNhL0hxOS9KclRjSEphMGp0bGZtQUFRPT0K",
-      "url": "https://github.com/Gritzpup/openbox/releases/download/v0.1.52/TurboLaunch_0.1.52_amd64.AppImage"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUTkxML3FSOW1WejVqRXdRaHEzMXh3aG83dFp3TlZodURDdk5jby94L0Nxd2VIRVhtbFNSaHFXdWFIZlNBcjR5ZFQxRXJVSTJ4WlRyZTZUYjhkb3Nlb3Z5aTZlemowMnc4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcxNTc2NTk3CWZpbGU6VHVyYm9MYXVuY2hfMC4xLjUzX2FtZDY0LkFwcEltYWdlCkNvR0hCZlFJMzgxVUhFRlRacFdzUTRqd2lSUnNpNEphTlc3Y2k4YjhTcWc4U2VUcFhPWVczU2EyLzRWbVNtbTd6Tzc0SEJHZWlmQmEzVEg5eW45UEFnPT0K",
+      "url": "https://github.com/Gritzpup/openbox/releases/download/v0.1.53/TurboLaunch_0.1.53_amd64.AppImage"
     }
   }
 }
