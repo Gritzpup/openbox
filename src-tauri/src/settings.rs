@@ -48,6 +48,48 @@ pub async fn setup_emulator_environment(
             fs::create_dir_all(&path).map_err(|e| e.to_string())?;
         }
     }
+
+    // Auto-sync emulators on startup
+    let _ = sync_emulators(app_handle, master_path).await;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn sync_emulators(
+    app_handle: tauri::AppHandle,
+    master_path: String,
+) -> Result<(), String> {
+    let emu_dir = PathBuf::from(&master_path).join("Emulators");
+    let version_file = emu_dir.join("emulator_versions.json");
+
+    let mut versions: serde_json::Value = if version_file.exists() {
+        let content = fs::read_to_string(&version_file).unwrap_or_else(|_| "{}".to_string());
+        serde_json::from_str(&content).unwrap_or(serde_json::json!({}))
+    } else {
+        serde_json::json!({})
+    };
+
+    let required = [
+        ("retroarch", "1.20.0"),
+        ("pcsx2", "2.2.0"),
+        ("rpcs3", "0.0.35"),
+        ("xemu", "latest")
+    ];
+
+    for (id, latest_ver) in required {
+        let current_ver = versions[id].as_str().unwrap_or("");
+        if current_ver != latest_ver {
+            println!("Syncing emulator {}: {} -> {}", id, current_ver, latest_ver);
+            match install_emulator(app_handle.clone(), id.to_string(), master_path.clone()).await {
+                Ok(_) => {
+                    versions[id] = serde_json::json!(latest_ver);
+                },
+                Err(e) => println!("Failed to sync {}: {}", id, e),
+            }
+        }
+    }
+
+    let _ = fs::write(version_file, serde_json::to_string_pretty(&versions).unwrap_or_default());
     Ok(())
 }
 

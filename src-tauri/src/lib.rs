@@ -158,6 +158,7 @@ pub fn run() {
             settings::get_emulators, settings::save_emulator, settings::delete_emulator,
             settings::link_platform_emulator, settings::get_platform_emulators,
             settings::set_data_root, settings::install_retroarch, settings::install_emulator, settings::setup_emulator_environment, settings::scaffold_platform_directories,
+            settings::sync_emulators,
             scraper::scrape_game_art, scraper::download_art,
             log_to_nas, report_version
         ])
