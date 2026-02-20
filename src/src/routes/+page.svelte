@@ -38,7 +38,7 @@
     let wizardImportResults = $state([]);
     let installingStatus = $state("");
 
-    const CURRENT_VERSION = "v0.1.31";
+    const CURRENT_VERSION = "v0.1.32";
 
     function addLog(message: string) {
         const timestamp = new Date().toLocaleTimeString();
@@ -199,7 +199,7 @@
                 try {
                     await update.downloadAndInstall((progress) => {
                         if (progress.event === 'Progress') {
-                            const percent = Math.round((progress.data.chunkLength / progress.data.contentLength) * 100);
+                            const percent = progress.data.contentLength ? Math.round((progress.data.chunkLength / progress.data.contentLength) * 100) : 0;
                             updateStatus = `Downloading... ${percent}%`;
                         }
                     });
