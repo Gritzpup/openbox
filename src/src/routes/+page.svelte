@@ -14,6 +14,7 @@
     let currentView = $state("library"); 
     let menuOpen = $state(false);
     let updateStatus = $state("");
+    let lastChecked = $state("");
     let isUpdating = $state(false);
     let logs = $state([]);
 
@@ -31,6 +32,7 @@
     let wizardPlatform = $state(null);
     let wizardEmulator = $state(null);
     let wizardScrape3D = $state(true);
+    let wizardScrapeCart = $state(true);
     let wizardImportResults = $state([]);
     let installingStatus = $state("");
 
@@ -303,7 +305,7 @@
             </button>
             <div class="title-wrap">
                 <h2>TurboLaunch</h2>
-                <span class="version-tag">v0.1.22</span>
+                <span class="version-tag">v0.1.23</span>
             </div>
         </div>
 
@@ -328,12 +330,16 @@
         </nav>
 
         <div class="sidebar-footer">
-            {#if updateStatus}
-                <div class="update-status-minimal">
-                    <div class="mini-spinner"></div>
-                    <span>{updateStatus}</span>
+            <div class="update-status-minimal">
+                <div class="mini-spinner" class:rotating={isUpdating}></div>
+                <div class="update-info">
+                    {#if updateStatus}
+                        <span class="status-msg">{updateStatus}</span>
+                    {:else}
+                        <span class="check-time">Last check: {lastChecked || '...'}</span>
+                    {/if}
                 </div>
-            {/if}
+            </div>
         </div>
     </aside>
 
@@ -403,7 +409,11 @@
                                 <button class="btn-primary" onclick={() => wizardStep = 3}>Next</button>
                             </div>
                         {:else if wizardStep === 3}
-                            <label class="checkbox"><input type="checkbox" bind:checked={wizardScrape3D} /> Download 3D Box Art</label>
+                            <h3>Select Art to Scrape</h3>
+                            <div class="art-options">
+                                <label class="checkbox"><input type="checkbox" bind:checked={wizardScrape3D} /> 3D Box Art</label>
+                                <label class="checkbox"><input type="checkbox" bind:checked={wizardScrapeCart} /> 3D Cartridge Art</label>
+                            </div>
                             <div class="wizard-actions">
                                 <button class="btn-back" onclick={() => wizardStep = 2}>Back</button>
                                 <button class="btn-primary" onclick={runWizardImport}>Import Now</button>
@@ -531,6 +541,7 @@
     .log-msg { color: #0f0; }
     .welcome-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; opacity: 0.5; }
     .emu-tag { background: #333; color: #aaa; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; margin-top: 5px; display: inline-block; }
+    .art-options { display: flex; flex-direction: column; gap: 15px; margin: 20px 0; text-align: left; }
     table { width: 100%; border-collapse: collapse; margin-top: 20px; }
     td { padding: 12px; border-bottom: 1px solid #282828; }
 </style>
