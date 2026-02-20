@@ -40,13 +40,13 @@
     let wizardImportResults = $state([]);
     let installingStatus = $state("");
 
-    const CURRENT_VERSION = "v0.1.48";
+    const CURRENT_VERSION = "v0.1.49";
 
     function addLog(message: string) {
         const timestamp = new Date().toLocaleTimeString();
         logs = [{ time: timestamp, message }, ...logs].slice(0, 100);
         if (config.data_root) {
-            invoke("log_to_nas", { message, nasPath: config.data_root });
+            invoke("log_to_nas", { message, nas_path: config.data_root });
         }
     }
 
@@ -189,7 +189,7 @@
         
         try {
             if (config.data_root) {
-                invoke("report_version", { version: CURRENT_VERSION, nasPath: config.data_root, error: null });
+                invoke("report_version", { version: CURRENT_VERSION, nas_path: config.data_root, error: null });
             }
             
             const update = await check();
@@ -214,7 +214,7 @@
                     const errMsg = `Install failed: ${err}`;
                     addLog(errMsg);
                     updateError = errMsg;
-                    if (config.data_root) invoke("report_version", { version: CURRENT_VERSION, nasPath: config.data_root, error: errMsg });
+                    if (config.data_root) invoke("report_version", { version: CURRENT_VERSION, nas_path: config.data_root, error: errMsg });
                     isUpdating = false; isChecking = false;
                     updateStatus = "";
                 }
@@ -229,7 +229,7 @@
                 const errMsg = `Check failed: ${e}`;
                 addLog(errMsg);
                 updateError = errMsg;
-                if (config.data_root) invoke("report_version", { version: CURRENT_VERSION, nasPath: config.data_root, error: errMsg });
+                if (config.data_root) invoke("report_version", { version: CURRENT_VERSION, nas_path: config.data_root, error: errMsg });
             }
         } finally {
             isChecking = false;
@@ -351,7 +351,7 @@
         await loadConfig();
         if (config.data_root) {
             await loadPlatforms();
-            invoke("report_version", { version: CURRENT_VERSION, nasPath: config.data_root, error: null });
+            invoke("report_version", { version: CURRENT_VERSION, nas_path: config.data_root, error: null });
         }
         
         checkForUpdates();
