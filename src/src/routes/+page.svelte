@@ -66,7 +66,7 @@
         "Arcade", "MAME", "SNK Neo Geo AES", "Atari 2600", "Atari 5200", "Atari 7800", "PC"
     ];
 
-    const CURRENT_VERSION = "v0.1.60";
+    const CURRENT_VERSION = "v0.1.61";
 
     function addLog(message: string) {
         const timestamp = new Date().toLocaleTimeString();
@@ -556,8 +556,6 @@
                                         {/each}
                                     </select>
                                 </div>
-                                <div class="or-divider">OR</div>
-                                <button class="btn-retroarch" onclick={runAutoEmulatorSetup}>🚀 Auto-Setup Recommended Emulators</button>
                                 <div class="wizard-actions">
                                     <button class="btn-secondary" onclick={() => wizardStep = 1}>&lt; Back</button>
                                     <button class="btn-primary" onclick={() => wizardStep = 3}>Next &gt;</button>
