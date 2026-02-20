@@ -1,14 +1,14 @@
 {
-  "version": "0.1.54",
-  "notes": "v0.1.54: Security Reset Build. Manually install this version to fix auto-updates on Windows.",
-  "pub_date": "2026-02-20T08:50:16Z",
+  "version": "0.1.55",
+  "notes": "v0.1.55: Improved background initialization and robust update check.",
+  "pub_date": "2026-02-20T09:04:09Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSVHlmR2ZLTTlTTFhDUXZOR2JvR0FwYTlQYlhDZExJNnNuYVYrYzlObXZFbEE5QzhsNEdoT2NrdVRoZUZJMTgrSDNKZWRabi9Fckt3VXd2K0tNQ2dkcGxqUWxVWUkxdGdJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcxNTc3OTc2CWZpbGU6VHVyYm9MYXVuY2hfMC4xLjU0X3g2NC1zZXR1cC5leGUKSWN1am85RDFHVENlaUpyb25tRk1WUjRBcUg2czNtcWVaZStsS0ZBemFSbXJhK2ZmOEpmYWM5NEs5R3dHSk5xTVNZRUNQcHNURGlLQVA4UEhsck40REE9PQo=",
-      "url": "https://github.com/Gritzpup/openbox/releases/download/v0.1.54/TurboLaunch_0.1.54_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSVHlmR2ZLTTlTTFpjTXBtaG12dUN2STVqWFgrZ0JtdllnSklrUFNjMmpRNitINnI3V1Y2TWtYbmJpNFJhU21FRTlwUkhRbzROdmNUcExDcExQRkpwa1FaK1hkTDZLV1FFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcxNTc4MjQ5CWZpbGU6VHVyYm9MYXVuY2hfMC4xLjU1X3g2NC1zZXR1cC5leGUKU2lZQ1BrVFRudGU1aHA5UHN0OXlEM3RWa29YWWJ0K0Q5MnVqcFdUVzBOY2tqMmczeS94blh6bU0rdVkwYVh1UlhGR21iZmk4UlpwQmJpSURHRzlWRFE9PQo=",
+      "url": "https://github.com/Gritzpup/openbox/releases/download/v0.1.55/TurboLaunch_0.1.55_x64-setup.exe"
     },
     "linux-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSVHlmR2ZLTTlTTFdXYm1uVWFEbTFVTW5yWjh4ZUZvMi8ydmxQdHdxbWp4NlV2aXFvSVFoK3c3V1lISFpWS1Y5Zlp1NlFpd3N0enNPallqQXJDSnFZaTBRQWJ6VmFrYmc0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcxNTc3ODE2CWZpbGU6VHVyYm9MYXVuY2hfMC4xLjU0X2FtZDY0LkFwcEltYWdlCmM0bU9FQlhZNmZoeEhNeGRwbm5OZXBTbXdSMnAyakN5Vml0N1hkS3h3dWdRY3FwK28yNmYxcEhxaGRnWHFtL3ZLUmlyWG5wMVhXWlVVMzkxOXFtc0NBPT0K",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSMGZueEwvUlRSNnRnWkhyS3lXNU9pWXd6c09kaTFlK2dIZC9qYWVyZlBqcnYwN3VPQ2daNW9jczIrVEZSY203bDh2K2JTTmlmTzFoQjhIdkMySWNkSW92WFQ0RHFLb3dZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcxNTc1OTg4CWZpbGU6VHVyYm9MYXVuY2hfMC4xLjUyX2FtZDY0LkFwcEltYWdlCm5rakpXMGpHRTcwTXV6dmdqNTRxRG1nb2Z4dFhCZlZkankxU1o4UCs2WlpjbGxIaEtGbXFPNXBmait4UWFCTnNhL0hxOS9KclRjSEphMGp0bGZtQUFRPT0K",
       "url": "https://github.com/Gritzpup/openbox/releases/download/v0.1.54/TurboLaunch_0.1.54_amd64.AppImage"
     }
   }

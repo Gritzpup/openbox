@@ -40,11 +40,12 @@
     let wizardImportResults = $state([]);
     let installingStatus = $state("");
 
-    const CURRENT_VERSION = "v0.1.54";
+    const CURRENT_VERSION = "v0.1.55";
 
     function addLog(message: string) {
         const timestamp = new Date().toLocaleTimeString();
         logs = [{ time: timestamp, message }, ...logs].slice(0, 100);
+        console.log(`[JS LOG] ${message}`);
         if (config.data_root) {
             invoke("log_to_nas", { message, nas_path: config.data_root });
         }
@@ -335,34 +336,43 @@
     async function resetUpdateState() {
         isUpdating = false; isChecking = false;
         updateStatus = "";
+        lastChecked = "Resetting...";
         addLog("Manual Update Reset triggered.");
         checkForUpdates();
     }
 
-    onMount(async () => {
-        // Register Drop Listener immediately to prevent block
-        const unlisten = await getCurrentWindow().onFileDropEvent((event) => {
-            if (event.payload.type === 'drop') {
-                isDragging = false;
-                handleFileDrop(event.payload.paths);
-            } else if (event.payload.type === 'hover') {
-                isDragging = true;
-            } else {
-                isDragging = false;
-            }
-        });
-
-        await loadConfig();
-        if (config.data_root) {
-            await loadPlatforms();
-            invoke("report_version", { version: CURRENT_VERSION, nas_path: config.data_root, error: null });
-        }
+    onMount(() => {
+        addLog("App mounting...");
         
+        // Start updates immediately
         checkForUpdates();
         const updateInterval = setInterval(checkForUpdates, 30000);
 
+        // Async background tasks
+        (async () => {
+            try {
+                const unlisten = await getCurrentWindow().onFileDropEvent((event) => {
+                    if (event.payload.type === 'drop') {
+                        isDragging = false;
+                        handleFileDrop(event.payload.paths);
+                    } else if (event.payload.type === 'hover') {
+                        isDragging = true;
+                    } else {
+                        isDragging = false;
+                    }
+                });
+                
+                await loadConfig();
+                if (config.data_root) {
+                    await loadPlatforms();
+                    invoke("report_version", { version: CURRENT_VERSION, nas_path: config.data_root, error: null });
+                }
+            } catch (err) {
+                addLog(`Startup background error: ${err}`);
+            }
+        })();
+
         return () => {
-            unlisten();
             clearInterval(updateInterval);
         };
     });
