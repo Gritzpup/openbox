@@ -19,14 +19,10 @@ BUNDLE_DIR="target/x86_64-pc-windows-gnu/release/bundle/nsis"
 EXE_NAME="TurboLaunch_${VERSION}_x64-setup.exe"
 SIG_FILE="${BUNDLE_DIR}/${EXE_NAME}.sig"
 
-if [ ! -f "$SIG_FILE" ]; then
-    echo "⚠️ Warning: Signature file not found at $SIG_FILE"
-    SIGNATURE="manual_sign_required"
-else
-    SIGNATURE=$(cat "$SIG_FILE")
-fi
+echo "Signing installer..."
+npx @tauri-apps/cli signer sign "${BUNDLE_DIR}/${EXE_NAME}"
 
-echo "📦 Update files generated. Copying to NAS..."
+echo "Update files generated. Copying to NAS..."
 
 # Copy installer to NAS root
 cp "${BUNDLE_DIR}/${EXE_NAME}" /home/ubuntubox/freenas/TurboLaunch_Installer.exe
