@@ -82,7 +82,7 @@
         "Arcade", "MAME", "SNK Neo Geo AES", "Atari 2600", "Atari 5200", "Atari 7800", "PC"
     ];
 
-    const CURRENT_VERSION = "v0.1.65";
+    const CURRENT_VERSION = "v0.1.71";
 
     function addLog(message: string) {
         const timestamp = new Date().toLocaleTimeString();
@@ -536,7 +536,9 @@
                 </div>
             {/if}
             <div class="update-status-minimal">
-                <div class="mini-spinner" class:rotating={isUpdating || isChecking}></div>
+                <button class="mini-spinner-btn" onclick={checkForUpdates} title="Check for updates now">
+                    <div class="mini-spinner" class:rotating={isUpdating || isChecking}></div>
+                </button>
                 <div class="update-info">
                     {#if updateStatus}
                         <span class="status-msg">{updateStatus}</span>
@@ -886,6 +888,8 @@
     }
     .drop-card .icon { font-size: 4rem; margin-bottom: 20px; }
 
+    .mini-spinner-btn { background: none; border: none; padding: 0; margin: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .mini-spinner-btn:hover .mini-spinner { border-left-color: #fff; }
     .mini-spinner { width: 10px; height: 10px; border: 2px solid rgba(255, 255, 255, 0.05); border-left-color: #333; border-radius: 50%; }
     .mini-spinner.rotating { border-left-color: #3b82f6; animation: spin 1s linear infinite; }
     .update-info { display: flex; flex-direction: column; }
