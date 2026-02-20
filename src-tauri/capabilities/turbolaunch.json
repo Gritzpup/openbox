@@ -1,0 +1,1 @@
+{ "identifier": "turbolaunch", "description": "Default capabilities for TurboLaunch", "windows": ["main"], "permissions": [ "core:default" ] }

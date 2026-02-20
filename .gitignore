@@ -1,0 +1,20 @@
+# Rust
+/src-tauri/target
+/src-tauri/gen
+
+# Node
+node_modules
+/src/.svelte-kit
+/src/build
+
+# IDE
+.vscode
+.idea
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Custom
+/src-tauri/capabilities/core.default.json
+/src-tauri/capabilities/protocol-asset.default.json
