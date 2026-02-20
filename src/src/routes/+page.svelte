@@ -40,7 +40,7 @@
     let wizardImportResults = $state([]);
     let installingStatus = $state("");
 
-    const CURRENT_VERSION = "v0.1.50";
+    const CURRENT_VERSION = "v0.1.51";
 
     function addLog(message: string) {
         const timestamp = new Date().toLocaleTimeString();
@@ -188,6 +188,7 @@
         const checkStartTime = Date.now();
         
         try {
+            addLog("Update engine: Starting check...");
             if (config.data_root) {
                 invoke("report_version", { version: CURRENT_VERSION, nas_path: config.data_root, error: null });
             }
@@ -196,6 +197,7 @@
             lastChecked = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
             
             if (update) {
+                addLog(`Update engine: Found v${update.version}!`);
                 updateError = ""; 
                 isUpdating = true;
                 updateStatus = `Downloading v${update.version}...`;
@@ -219,16 +221,17 @@
                     updateStatus = "";
                 }
             } else {
-                addLog("No update found (already at latest version).");
+                addLog("Update engine: Already at latest version.");
                 const elapsed = Date.now() - checkStartTime;
                 if (elapsed < 1000) await new Promise(r => setTimeout(r, 1000 - elapsed));
                 updateStatus = "";
             }
         } catch (e) {
+            addLog(`Update engine error: ${e}`);
+            lastChecked = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + " (Failed)";
             updateStatus = "";
             if (!e?.toString().includes("404")) {
                 const errMsg = `Check failed: ${e}`;
-                addLog(errMsg);
                 updateError = errMsg;
                 if (config.data_root) invoke("report_version", { version: CURRENT_VERSION, nas_path: config.data_root, error: errMsg });
             }
