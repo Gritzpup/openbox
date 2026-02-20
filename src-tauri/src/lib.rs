@@ -108,6 +108,7 @@ pub fn run() {
             library::load_library, library::get_games_for_platform, library::get_platforms, library::get_game_images, library::add_game,
             media_cache::generate_thumbnail,
             settings::get_emulators, settings::save_emulator, settings::delete_emulator,
+            settings::link_platform_emulator, settings::get_platform_emulators,
             scraper::scrape_game_art, scraper::download_art,
             log_to_nas
         ])
