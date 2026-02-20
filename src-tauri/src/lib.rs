@@ -118,11 +118,18 @@ pub fn run() {
                     let handle = app.handle().clone();
                     tauri::async_runtime::spawn(async move {
                         let app_dir = handle.path().app_local_data_dir().expect("Failed to get app local data dir");
-                        
+                        let _ = internal_log_to_nas(format!("Startup: AppData dir is {:?}", app_dir), None).await;
+
                         // 1. Load config to find the database directory
                         let config = match config::load_config(&app_dir).await {
-                            Ok(c) => c,
-                            Err(_) => config::AppConfig::default(),
+                            Ok(c) => {
+                                let _ = internal_log_to_nas(format!("Config loaded. Data root: {:?}", c.data_root), c.data_root.clone()).await;
+                                c
+                            },
+                            Err(e) => {
+                                let _ = internal_log_to_nas(format!("Config load FAILED: {}", e), None).await;
+                                config::AppConfig::default()
+                            },
                         };
         
                         let db_dir = if let Some(ref root) = config.data_root {
@@ -150,7 +157,10 @@ pub fn run() {
                                     Err(e) => eprintln!("Failed to load library: {}", e),
                                 }
                             }
-                            Err(e) => eprintln!("Failed to init DB: {}", e),
+                            Err(e) => {
+                                let _ = internal_log_to_nas(format!("DB Init FAILED in {:?}: {}", db_dir, e), config.data_root.clone()).await;
+                                eprintln!("Failed to init DB: {}", e);
+                            },
                         }
                     });
                     Ok(())

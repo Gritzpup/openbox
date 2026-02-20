@@ -39,48 +39,90 @@ pub fn get_config_path(app_dir: &Path) -> PathBuf {
 }
 
 pub async fn load_config(app_dir: &Path) -> Result<AppConfig> {
-    // 1. Check for local pointer config
-    let local_config_path = app_dir.join("local_config.json");
     let mut data_root: Option<String> = None;
 
-    if local_config_path.exists() {
-        let content = fs::read_to_string(&local_config_path)?;
-        let local: serde_json::Value = serde_json::from_str(&content)?;
-        data_root = local["data_root"].as_str().map(|s| s.to_string());
+    // 1. Check for Portable Pointer (next to exe)
+    // This is the most persistent way to store the NAS path
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            let portable_ptr = exe_dir.join("portable_data_root.txt");
+            if portable_ptr.exists() {
+                if let Ok(path) = fs::read_to_string(&portable_ptr) {
+                    let trimmed = path.trim().to_string();
+                    if !trimmed.is_empty() {
+                        data_root = Some(trimmed);
+                    }
+                }
+            }
+        }
     }
 
-    // 2. Determine where the master config is
+    // 2. Check for local pointer config (local_config.json in AppData) if portable wasn't found
+    if data_root.is_none() {
+        let local_config_path = app_dir.join("local_config.json");
+        if local_config_path.exists() {
+            if let Ok(content) = fs::read_to_string(&local_config_path) {
+                if let Ok(local) = serde_json::from_str::<serde_json::Value>(&content) {
+                    data_root = local["data_root"].as_str().map(|s| s.to_string());
+                }
+            }
+        }
+    }
+
+    // 3. Determine where the master config should be
     let master_dir = if let Some(ref path) = data_root {
         PathBuf::from(path)
     } else {
         app_dir.to_path_buf()
     };
 
-    if !master_dir.exists() {
-        fs::create_dir_all(&master_dir)?;
+    let config_path = master_dir.join("config.json");
+    
+    // 4. Attempt to load existing config
+    if config_path.exists() {
+        match fs::read_to_string(&config_path) {
+            Ok(config_str) => {
+                if let Ok(mut config) = serde_json::from_str::<AppConfig>(&config_str) {
+                    config.data_root = data_root;
+                    return Ok(config);
+                }
+            },
+            Err(_) => {
+                let mut config = AppConfig::default();
+                config.data_root = data_root;
+                return Ok(config); 
+            }
+        }
     }
 
-    let config_path = master_dir.join("config.json");
-    if config_path.exists() {
-        let config_str = fs::read_to_string(config_path)?;
-        let mut config: AppConfig = serde_json::from_str(&config_str)?;
-        config.data_root = data_root;
-        Ok(config)
-    } else {
-        let mut config = AppConfig::default();
-        config.data_root = data_root;
-        save_config_internal(app_dir, config.clone()).await?;
-        Ok(config)
+    // 5. No config found
+    let mut config = AppConfig::default();
+    config.data_root = data_root;
+    
+    if config.data_root.is_none() {
+        let _ = save_config_internal(app_dir, config.clone()).await;
     }
+    
+    Ok(config)
 }
 
 async fn save_config_internal(app_dir: &Path, config: AppConfig) -> Result<()> {
-    // 1. Save local pointer
+    // 1. Save local pointer (AppData)
     let local_config_path = app_dir.join("local_config.json");
     let local_json = serde_json::json!({ "data_root": config.data_root });
     fs::write(local_config_path, serde_json::to_string_pretty(&local_json)?)?;
 
-    // 2. Save master config
+    // 2. Save portable pointer (next to exe) if we have a data_root
+    if let Some(ref root) = config.data_root {
+        if let Ok(exe_path) = std::env::current_exe() {
+            if let Some(exe_dir) = exe_path.parent() {
+                let portable_ptr = exe_dir.join("portable_data_root.txt");
+                let _ = fs::write(portable_ptr, root);
+            }
+        }
+    }
+
+    // 3. Save master config
     let master_dir = if let Some(ref path) = config.data_root {
         PathBuf::from(path)
     } else {
@@ -88,12 +130,12 @@ async fn save_config_internal(app_dir: &Path, config: AppConfig) -> Result<()> {
     };
 
     if !master_dir.exists() {
-        fs::create_dir_all(&master_dir)?;
+        let _ = fs::create_dir_all(&master_dir);
     }
 
     let config_path = master_dir.join("config.json");
     let config_str = serde_json::to_string_pretty(&config)?;
-    fs::write(config_path, config_str)?;
+    let _ = fs::write(config_path, config_str);
     Ok(())
 }
 
