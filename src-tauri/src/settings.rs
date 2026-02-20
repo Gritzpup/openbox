@@ -17,8 +17,15 @@ pub async fn scaffold_platform_directories(
     let base_video_dir = PathBuf::from(&master_path).join("Videos").join(&platform_id);
 
     let image_subfolders = [
-        "Box - 3D", "Box - Front", "Box - Back", "Cart - 3D", "Cart - Front",
-        "Clear Logo", "Disc", "Screenshot - Gameplay", "Fanart - Background"
+        "Box - 3D", "Box - Front", "Box - Back", "Box - Full", 
+        "Box - Front Reconstructed", "Box - Back Reconstructed",
+        "Cart - 3D", "Cart - Front", "Cart - Back", "Disc",
+        "Clear Logo", "Fanart - Background", "Banner",
+        "Advertisement Flyer - Front", "Advertisement Flyer - Back",
+        "Arcade - Cabinet", "Arcade - Marquee", "Arcade - Circuit Board", 
+        "Arcade - Control Panel", "Arcade - Controls Info",
+        "Screenshot - Gameplay", "Screenshot - Game Title", "Screenshot - Game Select",
+        "Screenshot - Game Over", "Screenshot - High Scores"
     ];
 
     for folder in image_subfolders {

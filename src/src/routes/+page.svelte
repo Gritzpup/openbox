@@ -39,7 +39,10 @@
     let wizardMediaOptions = $state({
         box_3d: true,
         box_front: true,
-        box_back: false,
+        box_back: true,
+        box_full: false,
+        box_front_reconstructed: false,
+        box_back_reconstructed: false,
         flyer_front: false,
         flyer_back: false,
         arcade_cabinet: false,
@@ -51,8 +54,16 @@
         bigbox_video: true,
         gameplay_video: true,
         clear_logo: true,
-        fanart: true,
-        disc: true
+        fanart_background: true,
+        disc: true,
+        cart_3d: true,
+        cart_front: true,
+        cart_back: true,
+        screenshot_gameplay: true,
+        screenshot_title: true,
+        screenshot_select: false,
+        screenshot_gameover: false,
+        screenshot_scores: false
     });
     let wizardImportResults = $state([]);
     let installingStatus = $state("");
@@ -66,7 +77,7 @@
         "Arcade", "MAME", "SNK Neo Geo AES", "Atari 2600", "Atari 5200", "Atari 7800", "PC"
     ];
 
-    const CURRENT_VERSION = "v0.1.61";
+    const CURRENT_VERSION = "v0.1.62";
 
     function addLog(message: string) {
         const timestamp = new Date().toLocaleTimeString();
@@ -608,16 +619,26 @@
                                 <p>How would you like to download images for your games?</p>
                                 <div class="media-grid-scroll">
                                     <div class="media-column">
-                                        <h4>Marketing & Box Art</h4>
+                                        <h4>Boxes & Marketing</h4>
                                         <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.box_3d} /> Box - 3D</label>
                                         <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.box_front} /> Box - Front</label>
                                         <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.box_back} /> Box - Back</label>
+                                        <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.box_full} /> Box - Full</label>
+                                        <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.box_front_reconstructed} /> Box - Front Reconstructed</label>
+                                        <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.box_back_reconstructed} /> Box - Back Reconstructed</label>
                                         <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.flyer_front} /> Advertisement Flyer - Front</label>
                                         <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.flyer_back} /> Advertisement Flyer - Back</label>
                                         <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.banner} /> Banner</label>
+                                        <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.clear_logo} /> Clear Logo</label>
+                                        <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.fanart_background} /> Fanart - Background</label>
                                     </div>
                                     <div class="media-column">
-                                        <h4>Arcade Specific</h4>
+                                        <h4>Media & Arcade</h4>
+                                        <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.disc} /> Disc</label>
+                                        <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.cart_3d} /> Cartridge - 3D</label>
+                                        <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.cart_front} /> Cartridge - Front</label>
+                                        <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.cart_back} /> Cartridge - Back</label>
+                                        <div class="divider-small"></div>
                                         <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.arcade_cabinet} /> Arcade - Cabinet</label>
                                         <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.arcade_marquee} /> Arcade - Marquee</label>
                                         <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.arcade_board} /> Arcade - Circuit Board</label>
@@ -625,12 +646,15 @@
                                         <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.arcade_controls_info} /> Arcade - Controls Info</label>
                                     </div>
                                     <div class="media-column">
-                                        <h4>Video & In-Game</h4>
+                                        <h4>Video & Screenshots</h4>
                                         <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.bigbox_video} /> Big Box Cinematic Video</label>
                                         <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.gameplay_video} /> Gameplay Video</label>
-                                        <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.clear_logo} /> Clear Logo</label>
-                                        <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.fanart} /> Fanart - Background</label>
-                                        <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.disc} /> Disc / Cartridge Media</label>
+                                        <div class="divider-small"></div>
+                                        <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.screenshot_gameplay} /> Screenshot - Gameplay</label>
+                                        <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.screenshot_title} /> Screenshot - Game Title</label>
+                                        <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.screenshot_select} /> Screenshot - Game Select</label>
+                                        <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.screenshot_gameover} /> Screenshot - Game Over</label>
+                                        <label class="checkbox"><input type="checkbox" bind:checked={wizardMediaOptions.screenshot_scores} /> Screenshot - High Scores</label>
                                     </div>
                                 </div>
                                 <div class="wizard-actions">
@@ -856,6 +880,7 @@
     .media-grid-scroll { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; background: #121212; padding: 20px; border-radius: 12px; border: 1px solid #333; }
     .media-column h4 { font-size: 0.8rem; color: #3b82f6; text-transform: uppercase; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 5px; }
     .media-column .checkbox { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; margin-bottom: 10px; cursor: pointer; color: #ddd; }
+    .divider-small { height: 1px; background: #222; margin: 15px 0; }
     .metadata-toggle { margin-bottom: 30px; background: #181818; padding: 20px; border-radius: 12px; border: 1px solid #333; }
     .checkbox-large { display: flex; align-items: center; gap: 15px; font-weight: bold; color: #fff; cursor: pointer; }
     .checkbox-large input { width: 20px; height: 20px; }
