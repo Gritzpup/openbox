@@ -38,7 +38,7 @@
     let wizardImportResults = $state([]);
     let installingStatus = $state("");
 
-    const CURRENT_VERSION = "v0.1.30";
+    const CURRENT_VERSION = "v0.1.31";
 
     function addLog(message: string) {
         const timestamp = new Date().toLocaleTimeString();
@@ -191,18 +191,16 @@
             const update = await check();
             lastChecked = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
             
-            const elapsed = Date.now() - checkStartTime;
-            if (elapsed < 1000) await new Promise(r => setTimeout(r, 1000 - elapsed));
-
             if (update) {
                 isUpdating = true;
                 addLog(`Update v${update.version} found!`);
+                updateStatus = `Update v${update.version} found!`;
                 
                 try {
                     await update.downloadAndInstall((progress) => {
                         if (progress.event === 'Progress') {
                             const percent = Math.round((progress.data.chunkLength / progress.data.contentLength) * 100);
-                            updateStatus = `Updating: ${percent}%`;
+                            updateStatus = `Downloading... ${percent}%`;
                         }
                     });
                     
@@ -215,6 +213,8 @@
                     updateStatus = "";
                 }
             } else {
+                const elapsed = Date.now() - checkStartTime;
+                if (elapsed < 1000) await new Promise(r => setTimeout(r, 1000 - elapsed));
                 updateStatus = "";
             }
         } catch (e) {
