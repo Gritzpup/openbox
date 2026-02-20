@@ -1,15 +1,15 @@
 {
-  "version": "0.1.53",
-  "notes": "v0.1.53: Fixed security keys and restored stable update flow.",
-  "pub_date": "2026-02-20T08:36:37Z",
+  "version": "0.1.54",
+  "notes": "v0.1.54: Security Reset Build. Manually install this version to fix auto-updates.",
+  "pub_date": "2026-02-20T08:50:16Z",
   "platforms": {
     "windows-x86_64": {
       "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUTkxML3FSOW1WejVOTDNmd1phK2dWRWRxdldsVlBkK0dyTXF1VW4rZHM5QmdNSTBHNXU3NDA0VVA1UVo1RWVGOXVYcWNud0NHVi9rYk02RTAxUXVnWXpJYnVTVk0rNUFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcxNTc1MTExCWZpbGU6VHVyYm9MYXVuY2hfMC4xLjUwX3g2NC1zZXR1cC5leGUKMmI3dGN2MnlxUzN0T2FKM0xIMUxVWFNWK0c5RkRHR1lqTklvTzhtQ3ZNbm1EaXhwczlwTlh1cjBQaVNMS2J4OGhDL1hHNHN4YzBiNlM5Tmt5KzlSQkE9PQo=",
       "url": "https://github.com/Gritzpup/openbox/releases/download/v0.1.50/TurboLaunch_0.1.50_x64-setup.exe"
     },
     "linux-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUTkxML3FSOW1WejVqRXdRaHEzMXh3aG83dFp3TlZodURDdk5jby94L0Nxd2VIRVhtbFNSaHFXdWFIZlNBcjR5ZFQxRXJVSTJ4WlRyZTZUYjhkb3Nlb3Z5aTZlemowMnc4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcxNTc2NTk3CWZpbGU6VHVyYm9MYXVuY2hfMC4xLjUzX2FtZDY0LkFwcEltYWdlCkNvR0hCZlFJMzgxVUhFRlRacFdzUTRqd2lSUnNpNEphTlc3Y2k4YjhTcWc4U2VUcFhPWVczU2EyLzRWbVNtbTd6Tzc0SEJHZWlmQmEzVEg5eW45UEFnPT0K",
-      "url": "https://github.com/Gritzpup/openbox/releases/download/v0.1.53/TurboLaunch_0.1.53_amd64.AppImage"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSVHlmR2ZLTTlTTFdXYm1uVWFEbTFVTW5yWjh4ZUZvMi8ydmxQdHdxbWp4NlV2aXFvSVFoK3c3V1lISFpWS1Y5Zlp1NlFpd3N0enNPallqQXJDSnFZaTBRQWJ6VmFrYmc0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcxNTc3ODE2CWZpbGU6VHVyYm9MYXVuY2hfMC4xLjU0X2FtZDY0LkFwcEltYWdlCmM0bU9FQlhZNmZoeEhNeGRwbm5OZXBTbXdSMnAyakN5Vml0N1hkS3h3dWdRY3FwK28yNmYxcEhxaGRnWHFtL3ZLUmlyWG5wMVhXWlVVMzkxOXFtc0NBPT0K",
+      "url": "https://github.com/Gritzpup/openbox/releases/download/v0.1.54/TurboLaunch_0.1.54_amd64.AppImage"
     }
   }
 }
