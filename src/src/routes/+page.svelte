@@ -40,7 +40,7 @@
     let wizardImportResults = $state([]);
     let installingStatus = $state("");
 
-    const CURRENT_VERSION = "v0.1.49";
+    const CURRENT_VERSION = "v0.1.50";
 
     function addLog(message: string) {
         const timestamp = new Date().toLocaleTimeString();
@@ -219,6 +219,7 @@
                     updateStatus = "";
                 }
             } else {
+                addLog("No update found (already at latest version).");
                 const elapsed = Date.now() - checkStartTime;
                 if (elapsed < 1000) await new Promise(r => setTimeout(r, 1000 - elapsed));
                 updateStatus = "";
