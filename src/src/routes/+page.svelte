@@ -26,6 +26,8 @@
     let platformEmulators = $state([]);
     let thumbnails = $state({}); 
 
+    let platformMenuOpen = $state(false);
+
     // Wizard/Setup State
     let setupWizardOpen = $state(false);
     let importWizardOpen = $state(false);
@@ -409,6 +411,19 @@
         }
     }
 
+    async function deletePlatform(platformId) {
+        if (!confirm("Are you sure you want to delete this platform and all its games?")) return;
+        try {
+            await invoke("delete_platform", { platformId });
+            addLog(`Deleted platform: ${platformId}`);
+            selectedPlatform = null;
+            platformMenuOpen = false;
+            await loadPlatforms();
+        } catch (e) {
+            addLog("Failed to delete platform: " + e);
+        }
+    }
+
     async function resetUpdateState() {
         isUpdating = false; isChecking = false;
         updateStatus = "";
@@ -494,8 +509,18 @@
                     <h4>{category}</h4>
                     <ul>
                         {#each platforms.filter(p => p.category === category) as platform}
-                            <li class={selectedPlatform?.id === platform.id && currentView === 'library' ? 'active' : ''}>
-                                <button onclick={() => selectPlatform(platform)}>{platform.name}</button>
+                            <li class="platform-item {selectedPlatform?.id === platform.id && currentView === 'library' ? 'active' : ''}">
+                                <button class="platform-btn" onclick={() => { selectPlatform(platform); platformMenuOpen = false; }}>{platform.name}</button>
+                                {#if selectedPlatform?.id === platform.id && currentView === 'library'}
+                                    <div class="platform-menu-wrap">
+                                        <button class="btn-dots" onclick={(e) => { e.stopPropagation(); platformMenuOpen = !platformMenuOpen }}>•••</button>
+                                        {#if platformMenuOpen}
+                                            <div class="platform-dropdown">
+                                                <button class="btn-delete" onclick={() => deletePlatform(platform.id)}>Delete Platform</button>
+                                            </div>
+                                        {/if}
+                                    </div>
+                                {/if}
                             </li>
                         {/each}
                     </ul>
@@ -949,4 +974,16 @@
     .import-summary { background: #000; padding: 20px; border-radius: 8px; font-family: monospace; font-size: 0.8rem; text-align: left; max-height: 200px; overflow-y: auto; color: #0f0; border: 1px solid #222; }
     .summary-item { margin-bottom: 4px; }
     .summary-more { color: #888; margin-top: 10px; font-style: italic; }
+
+    .platform-item { position: relative; display: flex; align-items: center; }
+    .platform-btn { flex: 1; text-align: left; padding: 8px 12px; background: none; border: none; color: #aaa; cursor: pointer; border-radius: 4px; font-size: 0.85rem; }
+    .platform-item.active .platform-btn { background: #3b82f6; color: white; }
+    
+    .platform-menu-wrap { position: absolute; right: 5px; display: flex; align-items: center; }
+    .btn-dots { background: none; border: none; color: rgba(255,255,255,0.5); cursor: pointer; padding: 5px; font-size: 0.8rem; }
+    .btn-dots:hover { color: #fff; }
+    
+    .platform-dropdown { position: absolute; top: 100%; right: 0; background: #282828; border: 1px solid #383838; border-radius: 4px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); z-index: 1000; min-width: 150px; }
+    .btn-delete { width: 100%; padding: 10px; background: none; border: none; color: #ff4444; text-align: left; cursor: pointer; font-size: 0.8rem; }
+    .btn-delete:hover { background: #383838; }
 </style>

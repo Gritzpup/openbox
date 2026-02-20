@@ -167,7 +167,7 @@ pub fn run() {
                 })        .invoke_handler(tauri::generate_handler![
             greet, 
             config::get_config, config::save_config, scanner::start_scan, scanner::detect_launchbox, scanner::batch_import,
-            library::load_library, library::get_games_for_platform, library::get_platforms, library::get_game_images, library::add_game, library::launch_game,
+            library::load_library, library::get_games_for_platform, library::get_platforms, library::get_game_images, library::add_game, library::launch_game, library::delete_platform,
             media_cache::generate_thumbnail,
             settings::get_emulators, settings::save_emulator, settings::delete_emulator,
             settings::link_platform_emulator, settings::get_platform_emulators,

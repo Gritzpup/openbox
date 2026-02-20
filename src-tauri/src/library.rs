@@ -241,3 +241,34 @@ pub async fn get_game_images(app_handle: tauri::AppHandle, game_id: String) -> R
         .collect();
     Ok(images)
 }
+
+#[tauri::command]
+pub async fn delete_platform(app_handle: tauri::AppHandle, platform_id: String) -> Result<(), String> {
+    let pool = app_handle.state::<SqlitePool>();
+    
+    // 1. Delete games for this platform
+    sqlx::query("DELETE FROM games WHERE platform_id = ?")
+        .bind(&platform_id)
+        .execute(&*pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    // 2. Delete platform emulators links
+    sqlx::query("DELETE FROM platform_emulators WHERE platform_id = ?")
+        .bind(&platform_id)
+        .execute(&*pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    // 3. Delete platform
+    sqlx::query("DELETE FROM platforms WHERE id = ?")
+        .bind(&platform_id)
+        .execute(&*pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    // Refresh memory
+    load_library(app_handle).await?;
+    
+    Ok(())
+}
