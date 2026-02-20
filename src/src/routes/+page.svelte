@@ -303,7 +303,7 @@
             </button>
             <div class="title-wrap">
                 <h2>TurboLaunch</h2>
-                <span class="version-tag">v0.1.21</span>
+                <span class="version-tag">v0.1.22</span>
             </div>
         </div>
 

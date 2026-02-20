@@ -1,11 +1,11 @@
 {
-  "version": "0.1.21",
-  "notes": "v0.1.21: Bridge fix for stuck updates and UI enhancements.",
-  "pub_date": "2026-02-20T03:45:34Z",
+  "version": "0.1.22",
+  "notes": "v0.1.22: Added General Settings for NAS Media Root and improved Auto-Updater.",
+  "pub_date": "2026-02-20T03:48:06Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRNEUrTnlVNGlZQklUQnBYbEo5STcxS2RldWJrMUc2aXVxb1lLWlA0bUg1L2gzUU0vL2liS0p1SG9xSFgrUlo4TGQ1aGdza3JXbkpQeGt4UzlRbFVrUHRZalU2WmtHV0E0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcxNTU5MTM0CWZpbGU6VHVyYm9MYXVuY2hfMC4xLjIxX3g2NC1zZXR1cC5leGUKYzNpQ3hja1dCdFdHTVV6RU5LQnY1WUpjb25vY0pyNmtHZ1YrU1ZLY3o0TlFieHV1WWR2cnJBSzlCSVB6d0xKeUJSN3grZ1Zaelo3bmxrUnlmQ29zQUE9PQo=",
-      "url": "https://github.com/Gritzpup/openbox/releases/download/v0.1.21/TurboLaunch_0.1.21_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUTkxML3FSOW1WeitocmdUbHRtUlF0aWZ1MEFySkxlM25zSk91OUlrUkR3WUlUNFJMdTdLdUR4MVVnTyt5WDQ2QlEyLzhSb0Nkd3BuTllVdk5MU1NQeHlVcXNwOGErSEFNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcxNTU5Mjg2CWZpbGU6VHVyYm9MYXVuY2hfMC4xLjIyX3g2NC1zZXR1cC5leGUKdm56TXk3d3dPTC9OakdJamJwTW13c3Erb2JMWmQvcktJS2hGbEpBb2tNVlpFQkRPazJuU2U1WGFKcHdxRXcvL0IwUDBjb0ZwMjBDdmR6U0UzRFFlQWc9PQo=",
+      "url": "https://github.com/Gritzpup/openbox/releases/download/v0.1.22/TurboLaunch_0.1.22_x64-setup.exe"
     }
   }
 }

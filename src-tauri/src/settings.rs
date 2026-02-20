@@ -11,9 +11,14 @@ pub async fn setup_emulator_environment(
     app_handle: tauri::AppHandle,
     master_path: String,
 ) -> Result<(), String> {
-    let emu_dir = PathBuf::from(&master_path).join("Emulators");
-    if !emu_dir.exists() {
-        fs::create_dir_all(&emu_dir).map_err(|e| e.to_string())?;
+    let master = PathBuf::from(&master_path);
+    let folders = ["Emulators", "Images", "Videos", "Cache", "Data"];
+    
+    for folder in folders {
+        let path = master.join(folder);
+        if !path.exists() {
+            fs::create_dir_all(&path).map_err(|e| e.to_string())?;
+        }
     }
     Ok(())
 }
