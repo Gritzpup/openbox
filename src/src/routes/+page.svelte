@@ -14,6 +14,7 @@
     let currentView = $state("library"); 
     let menuOpen = $state(false);
     let updateStatus = $state("");
+    let isUpdating = $state(false);
 
     let emulators = $state([]);
     let newEmulator = $state({ id: "", name: "", executable_path: "", default_cmdline: "" });
@@ -130,15 +131,22 @@
             const update = await check();
             if (update) {
                 console.log(`Update v${update.version} available!`);
-                updateStatus = `Update v${update.version} available. Downloading...`;
+                isUpdating = true;
+                updateStatus = `Updating to v${update.version}...`;
+                
+                // Track download progress if needed, but for now simple overlay
                 await update.downloadAndInstall();
-                updateStatus = "Update installed. Relaunching...";
-                await relaunch();
+                
+                updateStatus = "Relaunching...";
+                setTimeout(async () => {
+                    await relaunch();
+                }, 1000);
             } else {
                 console.log("App is up to date.");
             }
         } catch (e) {
             console.error("Update check failed", e);
+            isUpdating = false;
         }
     }
 
@@ -244,6 +252,16 @@
     </aside>
 
     <main class="content">
+        {#if isUpdating}
+            <div class="update-overlay">
+                <div class="update-card">
+                    <div class="spinner"></div>
+                    <h2>{updateStatus}</h2>
+                    <p>TurboLaunch is installing the latest version. Please wait...</p>
+                </div>
+            </div>
+        {/if}
+
         {#if wizardOpen}
             <div class="wizard-overlay">
                 <div class="wizard-card">
@@ -752,6 +770,44 @@
 
     .settings-view {
         max-width: 800px;
+    }
+
+    /* Update Overlay */
+    .update-overlay {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.9);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+        backdrop-filter: blur(5px);
+    }
+
+    .update-card {
+        text-align: center;
+        background: #1e1e1e;
+        padding: 40px;
+        border-radius: 16px;
+        border: 1px solid #333;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+    }
+
+    .update-card h2 { color: #3b82f6; margin: 20px 0 10px; }
+    .update-card p { color: #888; }
+
+    .spinner {
+        width: 60px;
+        height: 60px;
+        border: 4px solid rgba(59, 130, 246, 0.1);
+        border-left-color: #3b82f6;
+        border-radius: 50%;
+        margin: 0 auto;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
     }
 
     .setting-item {
