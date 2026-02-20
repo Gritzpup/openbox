@@ -296,7 +296,7 @@
             </button>
             <div class="title-wrap">
                 <h2>TurboLaunch</h2>
-                <span class="version-tag">v0.1.19</span>
+                <span class="version-tag">v0.1.20</span>
             </div>
         </div>
 

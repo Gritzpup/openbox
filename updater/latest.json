@@ -1,11 +1,11 @@
 {
-  "version": "0.1.19",
-  "notes": "v0.1.19: Added General Settings for NAS Media Root and improved Auto-Updater.",
-  "pub_date": "2026-02-20T03:38:32Z",
+  "version": "0.1.20",
+  "notes": "BRIDGE Update: Fixes update path and enables NAS Emulator sync.",
+  "pub_date": "2026-02-20T03:41:52Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUTkxML3FSOW1WenptRHZ5VnhCQXBWUUZsMXZlcG1OaWZwRGp4WG9nem9kbit6ZnZEeUFjMVVySm9yUEhJRDkzMEFJc2lBZ1NScnhORW9sV1hYeGNFNU12TEptUEhSaWdvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcxNTU4NzEyCWZpbGU6VHVyYm9MYXVuY2hfMC4xLjE5X3g2NC1zZXR1cC5leGUKSUVkS3paOGgvRVNQV0xmQUhEWVppWWxDcng2aTVUZDF0dy9GSERrV3F3Y1BaTHp5S01LZXZaMDZ2a1UycDg1ckw1bWIvYWFhODNnMitkYityeUNMRHc9PQo=",
-      "url": "https://github.com/Gritzpup/openbox/releases/download/v0.1.19/TurboLaunch_0.1.19_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRNEUrTnlVNGlZQkVrVG9ROTlZT3hYSENuY3BmdlE2Vk1VSjQra3FjQjhOUjI2dHNkZmkwanVZSEIrZExlQU1yRi9Ta3pUcFI2cEJraHk4RElRWklnV2FJK2NaTE9KWXdBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcxNTU4OTEyCWZpbGU6VHVyYm9MYXVuY2hfMC4xLjIwX3g2NC1zZXR1cC5leGUKdGJ3SENDcjNwcHR3SXROMDJuaFY5aHZ1aHU5Z2JzWEIrelhYM25kb3Jzek1SYjlVRFdOYkZLdW5uV1Y3NXZVeDVMcVJNdUpkWFRHY1lNbWNrcW9jQ0E9PQo=",
+      "url": "https://github.com/Gritzpup/openbox/releases/download/v0.1.20/TurboLaunch_0.1.20_x64-setup.exe"
     }
   }
 }
