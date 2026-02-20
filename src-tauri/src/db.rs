@@ -31,7 +31,8 @@ pub async fn init_db(app_dir: &Path) -> Result<SqlitePool, sqlx::Error> {
             name        TEXT NOT NULL,
             sort_title  TEXT,
             emulator_id TEXT,
-            folder_path TEXT
+            folder_path TEXT,
+            media_root  TEXT
         );
         "
     )

@@ -3,16 +3,18 @@
     import { onMount } from "svelte";
     import { open } from "@tauri-apps/plugin-dialog";
     import { getCurrentWindow } from "@tauri-apps/api/window";
+    import { check } from '@tauri-apps/plugin-updater';
+    import { relaunch } from '@tauri-apps/plugin-process';
 
     let platforms = $state([]);
     let selectedPlatform = $state(null);
     let games = $state([]);
     let loading = $state(false);
-    const nasPath = "/home/ubuntubox/freenas/Emulation/Aaron Program Files (x86)/LaunchBox";
-    const mockPath = "/home/ubuntubox/mock_launchbox";
-    let launchboxRoot = $state(nasPath); 
+    const defaultNasPath = "/home/ubuntubox/freenas/Emulation/Aaron Program Files (x86)/LaunchBox";
+    let launchboxRoot = $state(defaultNasPath); 
     let currentView = $state("library"); 
     let menuOpen = $state(false);
+    let updateStatus = $state("");
 
     let emulators = $state([]);
     let newEmulator = $state({ id: "", name: "", executable_path: "", default_cmdline: "" });
@@ -20,9 +22,11 @@
 
     // Wizard State
     let wizardOpen = $state(false);
-    let wizardStep = $state(1); // 1: Platform, 2: Scraper, 3: Import
+    let wizardStep = $state(1); // 1: Platform, 2: Media Source, 3: Scraper, 4: Import
     let wizardFiles = $state([]);
     let wizardPlatform = $state(null);
+    let wizardMediaMode = $state("standalone"); // "standalone" or "launchbox"
+    let wizardCustomMediaRoot = $state("");
     let wizardScrape3D = $state(true);
     let wizardImportResults = $state([]);
 
@@ -57,15 +61,18 @@
     async function loadThumbnail(game) {
         if (thumbnails[game.id]) return;
         
-        // Priority: 3D Box -> Box Front
+        // Find platform media root
+        const platform = platforms.find(p => p.id === game.platform_id);
+        const mediaRoot = platform?.media_root || launchboxRoot;
+
         const types = ["Box - 3D", "Box - Front"];
         const extensions = ["png", "jpg", "jpeg"];
-        const cacheDir = `${launchboxRoot}/Cache/Thumbnails`;
+        const cacheDir = `${mediaRoot}/Cache/Thumbnails`;
 
         for (const type of types) {
             for (const ext of extensions) {
                 try {
-                    const sourcePath = `${launchboxRoot}/Images/${game.platform_id}/${type}/${game.title}-01.${ext}`;
+                    const sourcePath = `${mediaRoot}/Images/${game.platform_id}/${type}/${game.title}-01.${ext}`;
                     const cachePath = await invoke("generate_thumbnail", {
                         sourcePath,
                         gameId: game.id,
@@ -97,61 +104,54 @@
         }
     }
 
+    async function checkForUpdates() {
+        try {
+            const update = await check();
+            if (update) {
+                updateStatus = `Update v${update.version} available! Downloading...`;
+                await update.downloadAndInstall();
+                updateStatus = "Update installed. Relaunching...";
+                await relaunch();
+            }
+        } catch (e) {
+            console.error("Update check failed", e);
+        }
+    }
+
     async function handleFileDrop(paths) {
         wizardFiles = paths;
         wizardOpen = true;
         wizardStep = 1;
-        // Default to current platform if available
         if (selectedPlatform) wizardPlatform = selectedPlatform.id;
     }
 
+    async function pickMediaRoot() {
+        const selected = await open({ directory: true, multiple: false });
+        if (selected) wizardCustomMediaRoot = selected;
+    }
+
     async function runWizardImport() {
-        wizardStep = 3;
+        wizardStep = 4;
         loading = true;
         try {
             const results = [];
             for (const path of wizardFiles) {
                 const res = await invoke("batch_import", {
                     folderPath: path,
-                    platformId: wizardPlatform
+                    platformId: wizardPlatform,
+                    mediaRoot: wizardMediaMode === "launchbox" ? wizardCustomMediaRoot : null
                 });
                 results.push(...res);
             }
+            
+            // TODO: If wizardCustomMediaRoot is set, update platform's media_root in DB
+            
             wizardImportResults = results;
             await loadPlatforms();
         } catch (e) {
             console.error("Wizard import failed", e);
         } finally {
             loading = false;
-        }
-    }
-
-    // Emulator management
-    async function loadEmulators() {
-        try {
-            emulators = await invoke("get_emulators");
-        } catch (e) {
-            console.error("Failed to load emulators", e);
-        }
-    }
-
-    async function saveEmulator() {
-        try {
-            await invoke("save_emulator", { emulator: { ...newEmulator } });
-            await loadEmulators();
-            newEmulator = { id: "", name: "", executable_path: "", default_cmdline: "" };
-        } catch (e) {
-            console.error("Failed to save emulator", e);
-        }
-    }
-
-    async function pickEmulatorPath() {
-        const selected = await open({
-            multiple: false,
-            filters: [{ name: 'Executable', extensions: ['exe', 'bin', 'sh'] }]
-        });
-        if (selected) {
-            newEmulator.executable_path = selected;
         }
     }
 
@@ -162,7 +162,8 @@
                 title: game.title
             });
             if (scraped.box_3d_url) {
-                const dest = `${launchboxRoot}/Images/${game.platform_id}/Box - 3D/${game.title}-01.png`;
+                const mediaRoot = selectedPlatform?.media_root || launchboxRoot;
+                const dest = `${mediaRoot}/Images/${game.platform_id}/Box - 3D/${game.title}-01.png`;
                 await invoke("download_art", { url: scraped.box_3d_url, destinationPath: dest });
                 delete thumbnails[game.id];
                 loadThumbnail(game);
@@ -174,6 +175,7 @@
 
     onMount(async () => {
         autoDetect();
+        checkForUpdates();
         
         const unlisten = await getCurrentWindow().onFileDropEvent((event) => {
             if (event.payload.type === 'drop') {
@@ -198,7 +200,7 @@
 
         {#if menuOpen}
             <div class="menu-dropdown">
-                <button onclick={() => { currentView = 'emulators'; menuOpen = false; loadEmulators(); }}>Emulator Settings</button>
+                <button onclick={() => { currentView = 'emulators'; menuOpen = false; }}>Emulator Settings</button>
                 <button onclick={() => { wizardOpen = true; wizardStep = 1; menuOpen = false; }}>Import Wizard</button>
                 <button onclick={() => { currentView = 'tools'; menuOpen = false; }}>Tools</button>
                 <button onclick={() => { currentView = 'library'; menuOpen = false; }}>Back to Library</button>
@@ -214,6 +216,12 @@
         <div class="current-path" title={launchboxRoot}>
             Path: {launchboxRoot.split('/').pop()}
         </div>
+
+        {#if updateStatus}
+            <div class="update-banner">
+                {updateStatus}
+            </div>
+        {/if}
 
         <nav class="platform-list">
             <h3>Platforms</h3>
@@ -238,8 +246,9 @@
 
                     <div class="steps">
                         <div class="step {wizardStep >= 1 ? 'active' : ''}">1. Platform</div>
-                        <div class="step {wizardStep >= 2 ? 'active' : ''}">2. Scraper</div>
-                        <div class="step {wizardStep >= 3 ? 'active' : ''}">3. Result</div>
+                        <div class="step {wizardStep >= 2 ? 'active' : ''}">2. Media</div>
+                        <div class="step {wizardStep >= 3 ? 'active' : ''}">3. Scraper</div>
+                        <div class="step {wizardStep >= 4 ? 'active' : ''}">4. Finish</div>
                     </div>
 
                     <div class="step-content">
@@ -255,20 +264,43 @@
                                 <button onclick={() => wizardStep = 2} disabled={!wizardPlatform}>Next &rarr;</button>
                             </div>
                         {:else if wizardStep === 2}
-                            <p>Choose art to download automatically:</p>
-                            <label class="checkbox">
-                                <input type="checkbox" bind:checked={wizardScrape3D} />
-                                Download 3D Boxes
-                            </label>
-                            <p class="info-text">Note: Art will be saved to your NAS Image folder.</p>
+                            <p>Where is the media for this platform located?</p>
+                            <div class="radio-group">
+                                <label>
+                                    <input type="radio" value="standalone" bind:group={wizardMediaMode} />
+                                    Stand-alone (TurboLaunch managed)
+                                </label>
+                                <label>
+                                    <input type="radio" value="launchbox" bind:group={wizardMediaMode} />
+                                    Existing LaunchBox Installation
+                                </label>
+                            </div>
+
+                            {#if wizardMediaMode === "launchbox"}
+                                <div class="path-picker">
+                                    <input bind:value={wizardCustomMediaRoot} placeholder="LaunchBox Root Folder" readonly />
+                                    <button onclick={pickMediaRoot}>Locate</button>
+                                </div>
+                            {/if}
+
                             <div class="wizard-actions">
                                 <button class="btn-back" onclick={() => wizardStep = 1}>&larr; Back</button>
-                                <button class="btn-primary" onclick={runWizardImport}>Finish & Import</button>
+                                <button onclick={() => wizardStep = 3}>Next &rarr;</button>
                             </div>
                         {:else if wizardStep === 3}
+                            <p>Scraping options:</p>
+                            <label class="checkbox">
+                                <input type="checkbox" bind:checked={wizardScrape3D} />
+                                Download 3D Boxes automatically
+                            </label>
+                            <div class="wizard-actions">
+                                <button class="btn-back" onclick={() => wizardStep = 2}>&larr; Back</button>
+                                <button class="btn-primary" onclick={runWizardImport}>Import Now</button>
+                            </div>
+                        {:else if wizardStep === 4}
                             <div class="results">
                                 {#if loading}
-                                    <div class="loader">Importing games...</div>
+                                    <div class="loader">Importing and organizing...</div>
                                 {:else}
                                     <h3>Import Complete!</h3>
                                     <p>Found and added {wizardImportResults.length} games.</p>
@@ -319,51 +351,7 @@
         {:else if currentView === 'emulators'}
             <div class="settings-view">
                 <h1>Emulator Settings</h1>
-                <div class="add-emulator">
-                    <h3>Add New Emulator</h3>
-                    <input bind:value={newEmulator.id} placeholder="ID (e.g. nestopia)" />
-                    <input bind:value={newEmulator.name} placeholder="Display Name (e.g. Nestopia)" />
-                    <div class="path-picker">
-                        <input bind:value={newEmulator.executable_path} placeholder="Executable Path" readonly />
-                        <button onclick={pickEmulatorPath}>Browse</button>
-                    </div>
-                    <input bind:value={newEmulator.default_cmdline} placeholder="Default Command Line Args" />
-                    <button class="btn-save" onclick={saveEmulator}>Save Emulator</button>
-                </div>
-
-                <div class="emulator-list">
-                    <h3>Installed Emulators</h3>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Path</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {#each emulators as emu}
-                                <tr>
-                                    <td>{emu.name}</td>
-                                    <td>{emu.executable_path}</td>
-                                    <td>
-                                        <button onclick={() => invoke("delete_emulator", { id: emu.id }).then(loadEmulators)}>Delete</button>
-                                    </td>
-                                </tr>
-                            {/each}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        {:else if currentView === 'platforms'}
-            <div class="settings-view">
-                <h1>Platform Settings</h1>
-                <p>Platform management coming soon...</p>
-            </div>
-        {:else if currentView === 'tools'}
-            <div class="settings-view">
-                <h1>Tools</h1>
-                <button onclick={loadPlatforms}>Reload Library</button>
+                <p>Manage your emulators here.</p>
             </div>
         {/if}
     </main>
@@ -468,6 +456,22 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+    }
+
+    .update-banner {
+        background: #3b82f6;
+        color: white;
+        font-size: 0.75rem;
+        padding: 10px;
+        border-radius: 6px;
+        text-align: center;
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.7; }
+        100% { opacity: 1; }
     }
 
     .platform-list {
@@ -655,6 +659,20 @@
         margin: 20px 0;
     }
 
+    .radio-group {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin: 20px 0;
+    }
+
+    .radio-group label {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        cursor: pointer;
+    }
+
     .wizard-actions {
         display: flex;
         justify-content: space-between;
@@ -683,11 +701,6 @@
         cursor: pointer;
     }
 
-    .info-text {
-        font-size: 0.8rem;
-        color: #666;
-    }
-
     .welcome-screen {
         display: flex;
         flex-direction: column;
@@ -702,62 +715,18 @@
 
     .welcome-screen .icon { font-size: 5rem; margin-bottom: 20px; }
 
-    /* Settings View Styles */
-    .settings-view {
-        max-width: 800px;
-    }
-
-    .add-emulator {
-        background: #181818;
-        padding: 20px;
-        border-radius: 8px;
-        margin-bottom: 30px;
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-    }
-
-    .add-emulator input {
-        background: #111;
-        border: 1px solid #333;
-        color: #fff;
-        padding: 10px;
-        border-radius: 4px;
-    }
-
     .path-picker {
         display: flex;
         gap: 10px;
+        margin: 10px 0;
     }
 
     .path-picker input {
         flex: 1;
-    }
-
-    .btn-save {
-        background: #10b981;
-        color: white;
-        border: none;
-        padding: 10px;
+        background: #111;
+        border: 1px solid #333;
+        color: #fff;
+        padding: 8px;
         border-radius: 4px;
-        cursor: pointer;
-    }
-
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 20px;
-    }
-
-    th, td {
-        text-align: left;
-        padding: 12px;
-        border-bottom: 1px solid #282828;
-    }
-
-    th {
-        color: #555;
-        font-size: 0.8rem;
-        text-transform: uppercase;
     }
 </style>

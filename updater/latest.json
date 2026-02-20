@@ -1,0 +1,11 @@
+{
+  "version": "0.1.0",
+  "notes": "Drag & Drop Wizard and Auto-Updater support.",
+  "pub_date": "2026-02-20T02:34:32Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "manual_sign_required",
+      "url": "https://github.com/Gritzpup/openbox/releases/download/v0.1.0/TurboLaunch_0.1.0_x64-setup.exe"
+    }
+  }
+}

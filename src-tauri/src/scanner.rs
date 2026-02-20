@@ -162,7 +162,20 @@ pub async fn batch_import(
     app_handle: tauri::AppHandle,
     folder_path: String,
     platform_id: String,
+    media_root: Option<String>,
 ) -> Result<Vec<String>, String> {
+    let pool = app_handle.state::<SqlitePool>();
+
+    // Update platform media root if provided
+    if let Some(ref root) = media_root {
+        sqlx::query("UPDATE platforms SET media_root = ? WHERE id = ?")
+            .bind(root)
+            .bind(&platform_id)
+            .execute(&*pool)
+            .await
+            .map_err(|e| e.to_string())?;
+    }
+
     let path = Path::new(&folder_path);
     if !path.exists() || !path.is_dir() {
         return Err("Invalid folder path".to_string());

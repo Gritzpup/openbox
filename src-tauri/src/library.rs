@@ -12,8 +12,9 @@ pub struct Platform {
     pub sort_title: Option<String>,
     pub emulator_id: Option<String>,
     pub folder_path: String,
+    pub media_root: Option<String>, // Individual media root
     #[sqlx(skip)]
-    pub games: Vec<Game>, // Games belonging to this platform
+    pub games: Vec<Game>,
 }
 
 // Represents a Game in RAM
@@ -71,7 +72,7 @@ impl Library {
 
         // Load Platforms
         let db_platforms: Vec<Platform> = sqlx::query_as(
-            "SELECT id, name, sort_title, emulator_id, folder_path FROM platforms"
+            "SELECT id, name, sort_title, emulator_id, folder_path, media_root FROM platforms"
         )
         .fetch_all(pool)
         .await?;
