@@ -162,6 +162,7 @@ pub async fn batch_import(
     app_handle: tauri::AppHandle,
     folder_path: String,
     platform_id: String,
+    category: String, // New parameter
     file_action: String, // "link", "copy", "move"
     media_root: Option<String>,
 ) -> Result<Vec<String>, String> {
@@ -172,9 +173,10 @@ pub async fn batch_import(
     });
 
     // 1. Ensure platform exists in DB (Foreign Key requirement)
-    sqlx::query("INSERT OR IGNORE INTO platforms (id, name, folder_path) VALUES (?, ?, ?)")
+    sqlx::query("INSERT OR IGNORE INTO platforms (id, name, category, folder_path) VALUES (?, ?, ?, ?)")
         .bind(&platform_id)
         .bind(&platform_id)
+        .bind(&category)
         .bind("")
         .execute(&*pool)
         .await

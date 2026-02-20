@@ -34,6 +34,7 @@ pub async fn init_db(db_dir: &Path) -> Result<SqlitePool, sqlx::Error> {
         CREATE TABLE IF NOT EXISTS platforms (
             id          TEXT PRIMARY KEY,
             name        TEXT NOT NULL,
+            category    TEXT DEFAULT 'Consoles',
             sort_title  TEXT,
             emulator_id TEXT,
             folder_path TEXT,

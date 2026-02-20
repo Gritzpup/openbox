@@ -9,6 +9,7 @@ use tauri::Manager; // Added Manager import
 pub struct Platform {
     pub id: String,
     pub name: String,
+    pub category: String,
     pub sort_title: Option<String>,
     pub emulator_id: Option<String>,
     pub folder_path: String,
@@ -72,7 +73,7 @@ impl Library {
 
         // Load Platforms
         let db_platforms: Vec<Platform> = sqlx::query_as(
-            "SELECT id, name, sort_title, emulator_id, folder_path, media_root FROM platforms"
+            "SELECT id, name, category, sort_title, emulator_id, folder_path, media_root FROM platforms"
         )
         .fetch_all(pool)
         .await?;

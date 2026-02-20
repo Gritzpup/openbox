@@ -12,15 +12,17 @@ pub async fn scaffold_platform_directories(
     app_handle: tauri::AppHandle,
     master_path: String,
     platform_id: String,
+    category: String,
 ) -> Result<(), String> {
     let pool = app_handle.state::<SqlitePool>();
 
     // 1. Ensure platform record exists in DB
     sqlx::query(
-        "INSERT OR IGNORE INTO platforms (id, name, folder_path) VALUES (?, ?, ?)"
+        "INSERT OR IGNORE INTO platforms (id, name, category, folder_path) VALUES (?, ?, ?, ?)"
     )
     .bind(&platform_id)
     .bind(&platform_id)
+    .bind(&category)
     .bind("")
     .execute(&*pool)
     .await

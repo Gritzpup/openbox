@@ -1,11 +1,11 @@
 {
-  "version": "0.1.64",
-  "notes": "v0.1.64: Added General Settings for NAS Media Root and improved Auto-Updater.",
-  "pub_date": "2026-02-20T11:42:38Z",
+  "version": "0.1.65",
+  "notes": "v0.1.65: Added General Settings for NAS Media Root and improved Auto-Updater.",
+  "pub_date": "2026-02-20T11:52:21Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSVHlmR2ZLTTlTTGNtVmZDVHZPWm5PUVhVUlVTdXAxM0JPVzZJeHhpZXlITURTbzNhZFVpcTg2MEwwbkFpSVJjU3Q3QkRjNi9VU3NrWmZXd0hpdUtmVmtvVHluNlZKU1FJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcxNTg3NzU4CWZpbGU6VHVyYm9MYXVuY2hfMC4xLjY0X3g2NC1zZXR1cC5leGUKV21XVnN5TEg5ME1McE92SWlhb3pyalF1Vmtlb0Z6aUMvVUlWRW5LdTNrVStBK2cyYm05eUkxOGVkelM4dytDc04vQU1PcE1kY0g5SEdlaGduNnlFREE9PQo=",
-      "url": "https://github.com/Gritzpup/openbox/releases/download/v0.1.64/TurboLaunch_0.1.64_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSVHlmR2ZLTTlTTGZMNjY2SzM0TTdLWWwram9KUmg4bCt5cDJtOVczWFBiTVVTUXp1MVoxTVpBcEdEOVA1S3A5TWRnVG9XcDg2QWNQUTRBVHM1eFplaVFZUUxpUUNjVXdzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcxNTg4MzQwCWZpbGU6VHVyYm9MYXVuY2hfMC4xLjY1X3g2NC1zZXR1cC5leGUKdGVodWJHMVkvakFSU2V0ZElCNWRreXgraXl1alMzSkZ0eXBiL0ZqTW55aGRsSzdPdkd3bEh4elROeGdUakFTcVhyQlVkdENtYXJUcy9oUXE5emJwREE9PQo=",
+      "url": "https://github.com/Gritzpup/openbox/releases/download/v0.1.65/TurboLaunch_0.1.65_x64-setup.exe"
     }
   }
 }

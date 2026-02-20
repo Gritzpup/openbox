@@ -33,6 +33,7 @@
     let wizardStep = $state(1); 
     let wizardFiles = $state([]);
     let wizardPlatform = $state("");
+    let wizardCategory = $state("Consoles");
     let wizardEmulator = $state(null);
     let wizardFileAction = $state("link"); // link, copy, move
     let wizardSearchMetadata = $state(true);
@@ -68,6 +69,8 @@
     let wizardImportResults = $state([]);
     let installingStatus = $state("");
 
+    const STANDARD_CATEGORIES = ["Consoles", "Handhelds", "Arcade", "Computers"];
+
     const STANDARD_PLATFORMS = [
         "Sony PlayStation", "Sony PlayStation 2", "Sony PlayStation 3", "Sony PlayStation Portable",
         "Nintendo Entertainment System", "Super Nintendo Entertainment System", "Nintendo 64", 
@@ -77,7 +80,7 @@
         "Arcade", "MAME", "SNK Neo Geo AES", "Atari 2600", "Atari 5200", "Atari 7800", "PC"
     ];
 
-    const CURRENT_VERSION = "v0.1.64";
+    const CURRENT_VERSION = "v0.1.65";
 
     function addLog(message: string) {
         const timestamp = new Date().toLocaleTimeString();
@@ -296,7 +299,8 @@
             if (config.data_root) {
                 await invoke("scaffold_platform_directories", { 
                     masterPath: config.data_root, 
-                    platformId: wizardPlatform 
+                    platformId: wizardPlatform,
+                    category: wizardCategory
                 });
             }
 
@@ -315,6 +319,7 @@
                 const res = await invoke("batch_import", {
                     folderPath: path,
                     platformId: wizardPlatform,
+                    category: wizardCategory,
                     fileAction: wizardFileAction,
                     mediaRoot: null 
                 });
@@ -484,13 +489,18 @@
 
         <nav class="platform-list">
             <h3>Platforms</h3>
-            <ul>
-                {#each platforms as platform}
-                    <li class={selectedPlatform?.id === platform.id && currentView === 'library' ? 'active' : ''}>
-                        <button onclick={() => selectPlatform(platform)}>{platform.name}</button>
-                    </li>
-                {/each}
-            </ul>
+            {#each [...new Set(platforms.map(p => p.category))] as category}
+                <div class="category-group">
+                    <h4>{category}</h4>
+                    <ul>
+                        {#each platforms.filter(p => p.category === category) as platform}
+                            <li class={selectedPlatform?.id === platform.id && currentView === 'library' ? 'active' : ''}>
+                                <button onclick={() => selectPlatform(platform)}>{platform.name}</button>
+                            </li>
+                        {/each}
+                    </ul>
+                </div>
+            {/each}
         </nav>
 
         <div class="sidebar-footer">
@@ -568,13 +578,25 @@
                         {#if wizardStep === 1}
                             <div class="step-inner">
                                 <h3>What platform are you importing games for?</h3>
-                                <p>Select the platform that these games belong to.</p>
-                                <div class="selection-box">
-                                    <select bind:value={wizardPlatform} size="10">
-                                        {#each STANDARD_PLATFORMS as p}
-                                            <option value={p}>{p}</option>
-                                        {/each}
-                                    </select>
+                                <p>Select the category and platform that these games belong to.</p>
+                                <div class="selection-row">
+                                    <div class="selection-box half">
+                                        <label>Category</label>
+                                        <select bind:value={wizardCategory}>
+                                            {#each STANDARD_CATEGORIES as c}
+                                                <option value={c}>{c}</option>
+                                            {/each}
+                                        </select>
+                                    </div>
+                                    <div class="selection-box half">
+                                        <label>Platform Name</label>
+                                        <select bind:value={wizardPlatform}>
+                                            <option value="">-- Select Platform --</option>
+                                            {#each STANDARD_PLATFORMS as p}
+                                                <option value={p}>{p}</option>
+                                            {/each}
+                                        </select>
+                                    </div>
                                 </div>
                                 <div class="wizard-actions">
                                     <button class="btn-secondary" onclick={() => importWizardOpen = false}>Cancel</button>
@@ -845,8 +867,10 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     .platform-list { flex: 1; overflow-y: auto; }
     .platform-list h3 { font-size: 0.75rem; text-transform: uppercase; color: #555; margin-bottom: 10px; }
+    .category-group { margin-bottom: 20px; }
+    .category-group h4 { font-size: 0.7rem; text-transform: uppercase; color: #444; margin: 0 0 8px 10px; border-left: 2px solid #333; padding-left: 10px; }
     .sidebar ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; }
-    .sidebar li button { width: 100%; padding: 8px 12px; background: none; border: none; color: #aaa; text-align: left; cursor: pointer; border-radius: 4px; }
+    .sidebar li button { width: 100%; padding: 8px 12px; background: none; border: none; color: #aaa; text-align: left; cursor: pointer; border-radius: 4px; font-size: 0.85rem; }
     .sidebar li.active button { background: #3b82f6; color: white; }
     .content { flex: 1; padding: 30px; overflow-y: auto; background: #121212; position: relative; }
     .game-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 20px; }
@@ -892,6 +916,9 @@
     .step-inner h3 { margin-bottom: 10px; color: #fff; font-size: 1.4rem; }
     .step-inner p { color: #aaa; margin-bottom: 25px; }
     
+    .selection-row { display: flex; gap: 20px; margin-bottom: 20px; }
+    .selection-box.half { flex: 1; }
+    .selection-box label { display: block; font-size: 0.7rem; text-transform: uppercase; color: #555; margin-bottom: 8px; font-weight: bold; }
     .selection-box select { width: 100%; background: #121212; border: 1px solid #333; color: white; border-radius: 8px; padding: 10px; outline: none; }
     .selection-box option { padding: 10px; border-bottom: 1px solid #181818; }
     .selection-box option:hover { background: #3b82f6; }
