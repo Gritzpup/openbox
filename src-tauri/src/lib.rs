@@ -76,39 +76,51 @@ pub fn run() {
                 Response::builder().status(404).body(vec![]).unwrap()
             }
         })
-        .setup(|app| {
-            app.manage(tokio::sync::Mutex::new(library::Library::default()));
-
-            let handle = app.handle().clone();
-            tauri::async_runtime::spawn(async move {
-                let app_dir = handle.path().app_local_data_dir().expect("Failed to get app local data dir");
-                if !app_dir.exists() {
-                    fs::create_dir_all(&app_dir).expect("Failed to create app local data dir");
-                }
-                match db::init_db(&app_dir).await {
-                    Ok(pool) => {
-                        handle.manage(pool);
-                        match library::Library::load_from_db(&handle.state::<sqlx::SqlitePool>()).await {
-                            Ok(lib) => {
-                        let state = handle.state::<tokio::sync::Mutex<library::Library>>();
-                        let mut library_state = state.lock().await;
-                        *library_state = lib;
-                            },
-                            Err(e) => eprintln!("Failed to load library: {}", e),
+                .setup(|app| {
+                    app.manage(tokio::sync::Mutex::new(library::Library::default()));
+        
+                    let handle = app.handle().clone();
+                    tauri::async_runtime::spawn(async move {
+                        let app_dir = handle.path().app_local_data_dir().expect("Failed to get app local data dir");
+                        
+                        // 1. Load config to find the database directory
+                        let config = match config::load_config(&app_dir).await {
+                            Ok(c) => c,
+                            Err(_) => config::AppConfig::default(),
+                        };
+        
+                        let db_dir = if let Some(ref root) = config.data_root {
+                            std::path::PathBuf::from(root)
+                        } else {
+                            app_dir.clone()
+                        };
+        
+                        // 2. Init DB in the selected directory
+                        match db::init_db(&db_dir).await {
+                            Ok(pool) => {
+                                handle.manage(pool);
+                                let pool_state = handle.state::<sqlx::SqlitePool>();
+                                match library::Library::load_from_db(&pool_state).await {
+                                    Ok(lib) => {
+                                        let state = handle.state::<tokio::sync::Mutex<library::Library>>();
+                                        let mut library_state = state.lock().await;
+                                        *library_state = lib;
+                                    },
+                                    Err(e) => eprintln!("Failed to load library: {}", e),
+                                }
+                            }
+                            Err(e) => eprintln!("Failed to init DB: {}", e),
                         }
-                    }
-                    Err(e) => eprintln!("Failed to init DB: {}", e),
-                }
-            });
-            Ok(())
-        })
-        .invoke_handler(tauri::generate_handler![
+                    });
+                    Ok(())
+                })        .invoke_handler(tauri::generate_handler![
             greet, 
             config::get_config, config::save_config, scanner::start_scan, scanner::detect_launchbox, scanner::batch_import,
             library::load_library, library::get_games_for_platform, library::get_platforms, library::get_game_images, library::add_game, library::launch_game,
             media_cache::generate_thumbnail,
             settings::get_emulators, settings::save_emulator, settings::delete_emulator,
             settings::link_platform_emulator, settings::get_platform_emulators,
+            settings::set_data_root, settings::install_retroarch,
             scraper::scrape_game_art, scraper::download_art,
             log_to_nas
         ])

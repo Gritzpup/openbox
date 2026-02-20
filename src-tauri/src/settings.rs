@@ -2,6 +2,69 @@ use sqlx::SqlitePool;
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
 
+use std::path::PathBuf;
+use std::fs;
+use zip_extract;
+
+#[tauri::command]
+pub async fn install_retroarch(
+    app_handle: tauri::AppHandle,
+    target_dir: String,
+) -> Result<String, String> {
+    let url = "https://buildbot.libretro.com/stable/1.20.0/windows/x86_64/RetroArch.zip";
+    let dest_path = PathBuf::from(&target_dir).join("RetroArch_download.zip");
+    let extract_path = PathBuf::from(&target_dir).join("RetroArch");
+
+    // 1. Download
+    println!("Downloading RetroArch...");
+    let response = reqwest::get(url).await.map_err(|e| e.to_string())?;
+    let bytes = response.bytes().await.map_err(|e| e.to_string())?;
+    
+    if let Some(parent) = dest_path.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    fs::write(&dest_path, bytes).map_err(|e| e.to_string())?;
+
+    // 2. Extract
+    println!("Extracting RetroArch...");
+    let file = fs::File::open(&dest_path).map_err(|e| e.to_string())?;
+    zip_extract::extract(file, &extract_path, true).map_err(|e| e.to_string())?;
+
+    // 3. Cleanup
+    let _ = fs::remove_file(dest_path);
+
+    let exe_path = extract_path.join("retroarch.exe").to_string_lossy().to_string();
+    
+    // 4. Register in DB
+    let pool = app_handle.state::<SqlitePool>();
+    sqlx::query(
+        "INSERT OR REPLACE INTO emulators (id, name, executable_path) VALUES (?, ?, ?)"
+    )
+    .bind("retroarch")
+    .bind("RetroArch (Auto-Installed)")
+    .bind(&exe_path)
+    .execute(&*pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    Ok(exe_path)
+}
+
+#[tauri::command]
+pub async fn set_data_root(
+    app_handle: tauri::AppHandle,
+    path: String,
+) -> Result<(), String> {
+    let app_dir = app_handle.path().app_local_data_dir().map_err(|e| e.to_string())?;
+    let mut config = crate::config::load_config(&app_dir).await.map_err(|e| e.to_string())?;
+    
+    config.data_root = Some(path);
+    crate::config::save_config(app_handle, config).await?;
+    
+    // The app should probably relaunch now to reload DB from new path
+    Ok(())
+}
+
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow, Clone)]
 pub struct Emulator {
     pub id: String,

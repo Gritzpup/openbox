@@ -10,7 +10,7 @@
     let selectedPlatform = $state(null);
     let games = $state([]);
     let loading = $state(false);
-    let config = $state({ launchbox_root: "", global_media_root: "" });
+    let config = $state({ data_root: null, launchbox_root: "", global_media_root: "" });
     let currentView = $state("library"); 
     let menuOpen = $state(false);
     let updateStatus = $state("");
@@ -22,37 +22,46 @@
     let platformEmulators = $state([]);
     let thumbnails = $state({}); 
 
-    // Wizard State
-    let wizardOpen = $state(false);
+    // Master Wizard State
+    let setupWizardOpen = $state(false);
+    let importWizardOpen = $state(false);
     let wizardStep = $state(1); 
     let wizardFiles = $state([]);
     let wizardPlatform = $state(null);
-    let wizardMediaMode = $state("standalone"); 
-    let wizardCustomMediaRoot = $state("");
+    let wizardEmulator = $state(null);
     let wizardScrape3D = $state(true);
     let wizardImportResults = $state([]);
+    let installingRetroArch = $state(false);
 
     function addLog(message: string) {
         const timestamp = new Date().toLocaleTimeString();
         logs = [{ time: timestamp, message }, ...logs].slice(0, 100);
-        invoke("log_to_nas", { message, nasPath: config.global_media_root });
+        invoke("log_to_nas", { message, nasPath: config.data_root || config.global_media_root });
     }
 
     async function loadConfig() {
         try {
             config = await invoke("get_config");
-            addLog("Config loaded.");
+            if (!config.data_root) {
+                setupWizardOpen = true;
+            } else {
+                addLog("Master data root active: " + config.data_root);
+            }
         } catch (e) {
             addLog("Failed to load config: " + e);
         }
     }
 
-    async function saveConfig() {
-        try {
-            await invoke("save_config", { config });
-            addLog("Config saved.");
-        } catch (e) {
-            addLog("Failed to save config: " + e);
+    async function setMasterFolder() {
+        const selected = await open({ directory: true, multiple: false });
+        if (selected) {
+            try {
+                await invoke("set_data_root", { path: selected });
+                addLog("Master folder set. Relaunching to apply...");
+                await relaunch();
+            } catch (e) {
+                alert("Failed to set master folder: " + e);
+            }
         }
     }
 
@@ -69,13 +78,40 @@
         }
     }
 
+    async function loadEmulators() {
+        try {
+            emulators = await invoke("get_emulators");
+        } catch (e) {
+            addLog("Failed to load emulators: " + e);
+        }
+    }
+
+    async function installRetroArch() {
+        if (!config.data_root) {
+            alert("Please set a Master NAS folder in General Settings first!");
+            return;
+        }
+        installingRetroArch = true;
+        addLog("Starting RetroArch auto-install...");
+        try {
+            const path = await invoke("install_retroarch", { targetDir: config.data_root });
+            addLog("RetroArch installed to " + path);
+            await loadEmulators();
+            wizardEmulator = "retroarch";
+        } catch (e) {
+            addLog("RetroArch install failed: " + e);
+            alert("Install failed: " + e);
+        } finally {
+            installingRetroArch = false;
+        }
+    }
+
     async function selectPlatform(platform) {
         selectedPlatform = platform;
         currentView = "library";
         loading = true;
         try {
             games = await invoke("get_games_for_platform", { platformId: platform.id });
-            addLog(`Loaded ${games.length} games for ${platform.name}.`);
             for (const game of games) {
                 loadThumbnail(game);
             }
@@ -97,10 +133,8 @@
 
     async function loadThumbnail(game) {
         if (thumbnails[game.id]) return;
-        
         const platform = platforms.find(p => p.id === game.platform_id);
-        const mediaRoot = platform?.media_root || config.global_media_root || "";
-
+        const mediaRoot = platform?.media_root || config.global_media_root || config.data_root || "";
         if (!mediaRoot) return;
 
         const types = ["Box - 3D", "Box - Front"];
@@ -127,118 +161,71 @@
         }
     }
 
-    async function autoDetect() {
-        loading = true;
-        addLog("Running auto-detection...");
-        try {
-            const detectedPath = await invoke("detect_launchbox");
-            if (detectedPath) {
-                addLog(`Detected LaunchBox at ${detectedPath}`);
-                if (!config.global_media_root) {
-                    config.global_media_root = detectedPath;
-                    await saveConfig();
-                }
-                await loadPlatforms();
-            }
-        } catch (e) {
-            addLog("Auto-detection failed: " + e);
-        } finally {
-            loading = false;
-        }
-    }
-
     async function checkForUpdates() {
         if (isUpdating) return;
         try {
-            addLog("Checking for updates...");
             const update = await check();
             if (update) {
-                addLog(`Update v${update.version} found! Installing silently...`);
                 isUpdating = true;
                 updateStatus = `Refreshing to v${update.version}...`;
-                
                 await update.downloadAndInstall((progress) => {
                     if (progress.event === 'Progress') {
                         const percent = Math.round((progress.data.chunkLength / progress.data.contentLength) * 100);
                         updateStatus = `Refreshing... ${percent}%`;
                     }
                 });
-                
-                updateStatus = "Reloading TurboLaunch...";
-                addLog("Update installed. Restarting.");
-                setTimeout(async () => {
-                    await relaunch();
-                }, 1000);
+                await relaunch();
             }
         } catch (e) {
-            addLog("Update check failed: " + e);
             isUpdating = false;
         }
     }
 
-    async function playGame(gameId) {
-        try {
-            addLog(`Attempting to launch game ${gameId}...`);
-            await invoke("launch_game", { gameId });
-        } catch (e) {
-            addLog("Launch failed: " + e);
-            alert("Launch failed: " + e);
-        }
-    }
-
     async function handleFileDrop(paths) {
-        addLog(`Files dropped: ${paths.length} items.`);
         wizardFiles = paths;
-        wizardOpen = true;
+        importWizardOpen = true;
         wizardStep = 1;
+        await loadEmulators();
         if (selectedPlatform) wizardPlatform = selectedPlatform.id;
     }
 
-    async function pickPath(field) {
-        const selected = await open({ directory: true, multiple: false });
-        if (selected) {
-            config[field] = selected;
-            await saveConfig();
-        }
-    }
-
-    async function loadEmulators() {
+    async function runWizardImport() {
+        wizardStep = 4;
+        loading = true;
         try {
-            emulators = await invoke("get_emulators");
-        } catch (e) {
-            addLog("Failed to load emulators: " + e);
-        }
-    }
+            // 1. Link Emulator if selected
+            if (wizardEmulator) {
+                await invoke("link_platform_emulator", {
+                    platformId: wizardPlatform,
+                    emulatorId: wizardEmulator,
+                    isDefault: true
+                });
+            }
 
-    async function saveEmulator() {
-        try {
-            await invoke("save_emulator", { emulator: { ...newEmulator } });
-            addLog(`Saved emulator ${newEmulator.name}`);
-            await loadEmulators();
-            newEmulator = { id: "", name: "", executable_path: "", default_cmdline: "" };
+            // 2. Import Games
+            const results = [];
+            for (const path of wizardFiles) {
+                const res = await invoke("batch_import", {
+                    folderPath: path,
+                    platformId: wizardPlatform,
+                    mediaRoot: null // Use default NAS root
+                });
+                results.push(...res);
+            }
+            wizardImportResults = results;
+            await loadPlatforms();
         } catch (e) {
-            addLog("Failed to save emulator: " + e);
-        }
-    }
-
-    async function linkEmulator(emuId) {
-        if (!selectedPlatform) return;
-        try {
-            await invoke("link_platform_emulator", {
-                platformId: selectedPlatform.id,
-                emulatorId: emuId,
-                isDefault: true
-            });
-            addLog(`Linked ${emuId} to ${selectedPlatform.name}`);
-            loadPlatformEmulators(selectedPlatform.id);
-        } catch (e) {
-            addLog("Failed to link emulator: " + e);
+            addLog("Import failed: " + e);
+        } finally {
+            loading = false;
         }
     }
 
     onMount(async () => {
         await loadConfig();
-        // autoDetect removed per user request
+        if (config.data_root) {
+            await loadPlatforms();
+        }
         
         checkForUpdates();
         const updateInterval = setInterval(checkForUpdates, 30000);
@@ -266,14 +253,13 @@
             </button>
             <div class="title-wrap">
                 <h2>TurboLaunch</h2>
-                <span class="version-tag">v0.1.13</span>
+                <span class="version-tag">v0.1.14</span>
             </div>
         </div>
 
         {#if menuOpen}
             <div class="menu-dropdown">
                 <button onclick={() => { currentView = 'emulators'; menuOpen = false; loadEmulators(); }}>Emulator Settings</button>
-                <button onclick={() => { wizardOpen = true; wizardStep = 1; menuOpen = false; }}>Import Wizard</button>
                 <button onclick={() => { currentView = 'tools'; menuOpen = false; }}>Tools & Paths</button>
                 <button onclick={() => { currentView = 'debug'; menuOpen = false; }}>Debug Logs</button>
                 <button onclick={() => { currentView = 'library'; menuOpen = false; }}>Back to Library</button>
@@ -302,6 +288,17 @@
     </aside>
 
     <main class="content">
+        {#if setupWizardOpen}
+            <div class="wizard-overlay">
+                <div class="wizard-card welcome-card">
+                    <div class="icon">🚀</div>
+                    <h1>Welcome to TurboLaunch</h1>
+                    <p>To keep your collection synced across all your computers, please select a folder on your **NAS** to store your database, settings, and media.</p>
+                    <button class="btn-primary btn-large" onclick={setMasterFolder}>Select Master NAS Folder</button>
+                </div>
+            </div>
+        {/if}
+
         {#if isUpdating}
             <div class="update-overlay">
                 <div class="update-card">
@@ -312,16 +309,70 @@
             </div>
         {/if}
 
-        {#if wizardOpen}
+        {#if importWizardOpen}
             <div class="wizard-overlay">
                 <div class="wizard-card">
                     <header>
                         <h2>Import Wizard</h2>
-                        <button class="btn-close" onclick={() => wizardOpen = false} aria-label="Close">&times;</button>
+                        <button class="btn-close" onclick={() => importWizardOpen = false}>&times;</button>
                     </header>
+
+                    <div class="steps">
+                        <div class="step {wizardStep >= 1 ? 'active' : ''}">1. Platform</div>
+                        <div class="step {wizardStep >= 2 ? 'active' : ''}">2. Emulator</div>
+                        <div class="step {wizardStep >= 3 ? 'active' : ''}">3. Art</div>
+                        <div class="step {wizardStep >= 4 ? 'active' : ''}">4. Finish</div>
+                    </div>
+
                     <div class="step-content">
-                        <p>Follow the steps to import your games.</p>
-                        <button class="btn-primary" onclick={() => wizardOpen = false}>Close Wizard</button>
+                        {#if wizardStep === 1}
+                            <p>Select platform for <strong>{wizardFiles.length}</strong> items:</p>
+                            <select bind:value={wizardPlatform}>
+                                <option value={null}>Select a platform...</option>
+                                {#each platforms as p}
+                                    <option value={p.id}>{p.name}</option>
+                                {/each}
+                            </select>
+                            <div class="wizard-actions">
+                                <button class="btn-primary" onclick={() => wizardStep = 2} disabled={!wizardPlatform}>Next &rarr;</button>
+                            </div>
+                        {:else if wizardStep === 2}
+                            <p>Select emulator for <strong>{wizardPlatform}</strong>:</p>
+                            <select bind:value={wizardEmulator}>
+                                <option value={null}>None (Select later)</option>
+                                {#each emulators as emu}
+                                    <option value={emu.id}>{emu.name}</option>
+                                {/each}
+                            </select>
+                            <div class="or-divider">OR</div>
+                            <button class="btn-retroarch" onclick={installRetroArch} disabled={installingRetroArch}>
+                                {installingRetroArch ? 'Installing...' : '🚀 Download & Install RetroArch'}
+                            </button>
+                            <div class="wizard-actions">
+                                <button class="btn-back" onclick={() => wizardStep = 1}>&larr; Back</button>
+                                <button class="btn-primary" onclick={() => wizardStep = 3}>Next &rarr;</button>
+                            </div>
+                        {:else if wizardStep === 3}
+                            <p>Scraping options:</p>
+                            <label class="checkbox">
+                                <input type="checkbox" bind:checked={wizardScrape3D} />
+                                Download 3D Boxes & Cartridges
+                            </label>
+                            <div class="wizard-actions">
+                                <button class="btn-back" onclick={() => wizardStep = 2}>&larr; Back</button>
+                                <button class="btn-primary" onclick={runWizardImport}>Import Now</button>
+                            </div>
+                        {:else if wizardStep === 4}
+                            <div class="results">
+                                {#if loading}
+                                    <div class="loader">Importing...</div>
+                                {:else}
+                                    <h3>Success!</h3>
+                                    <p>Added {wizardImportResults.length} games to your NAS library.</p>
+                                    <button class="btn-primary" onclick={() => importWizardOpen = false}>Close</button>
+                                {/if}
+                            </div>
+                        {/if}
                     </div>
                 </div>
             </div>
@@ -336,15 +387,13 @@
                             <span class="count">{games.length} games</span>
                             {#if platformEmulators.length > 0}
                                 <span class="emu-tag">using {platformEmulators[0].name}</span>
-                            {:else}
-                                <span class="emu-tag warning">No emulator set!</span>
                             {/if}
                         </div>
                     </div>
                 </header>
                 <div class="game-grid">
                     {#each games as game}
-                        <button class="game-card" ondblclick={() => playGame(game.id)}>
+                        <button class="game-card">
                             <div class="thumbnail">
                                 {#if thumbnails[game.id]}
                                     <img src={thumbnails[game.id]} alt={game.title} />
@@ -352,9 +401,7 @@
                                     <div class="placeholder"><span>{game.title}</span></div>
                                 {/if}
                             </div>
-                            <div class="info">
-                                <h3>{game.title}</h3>
-                            </div>
+                            <div class="info"><h3>{game.title}</h3></div>
                         </button>
                     {/each}
                 </div>
@@ -371,7 +418,7 @@
                 <div class="add-emulator">
                     <h3>Add New Emulator</h3>
                     <input bind:value={newEmulator.id} placeholder="ID (e.g. nestopia)" />
-                    <input bind:value={newEmulator.name} placeholder="Display Name (e.g. Nestopia)" />
+                    <input bind:value={newEmulator.name} placeholder="Display Name" />
                     <div class="path-picker">
                         <input bind:value={newEmulator.executable_path} placeholder="Executable Path" readonly />
                         <button class="btn-small" onclick={async () => { 
@@ -381,52 +428,26 @@
                     </div>
                     <button class="btn-save" onclick={saveEmulator}>Save Emulator</button>
                 </div>
-
                 <div class="emulator-list">
-                    <h3>Installed Emulators</h3>
                     <table>
-                        <tbody>
-                            {#each emulators as emu}
-                                <tr>
-                                    <td><strong>{emu.name}</strong></td>
-                                    <td>{emu.executable_path}</td>
-                                    <td>
-                                        <button class="btn-small" onclick={() => linkEmulator(emu.id)}>Set Default for {selectedPlatform?.name || 'Current'}</button>
-                                        <button class="btn-small btn-danger" onclick={() => invoke("delete_emulator", { id: emu.id }).then(loadEmulators)}>Delete</button>
-                                    </td>
-                                </tr>
-                            {/each}
-                        </tbody>
+                        {#each emulators as emu}
+                            <tr>
+                                <td><strong>{emu.name}</strong></td>
+                                <td><button class="btn-small" onclick={() => linkEmulator(emu.id)}>Set Default</button></td>
+                            </tr>
+                        {/each}
                     </table>
                 </div>
             </div>
         {:else if currentView === 'tools'}
             <div class="settings-view">
-                <h1>Tools & Path Settings</h1>
-                
+                <h1>Tools & Paths</h1>
                 <div class="setting-item">
-                    <h3>NAS / Global Media Storage</h3>
-                    <p>Where 3D Boxes and Videos are stored.</p>
+                    <h3>Master NAS Folder</h3>
+                    <p>Where your database and settings are stored.</p>
                     <div class="path-picker">
-                        <input bind:value={config.global_media_root} placeholder="Not set" readonly />
-                        <button class="btn-primary" onclick={() => pickPath('global_media_root')}>Locate</button>
-                    </div>
-                </div>
-
-                <div class="setting-item">
-                    <h3>LaunchBox Root (Optional)</h3>
-                    <p>Used for auto-importing your existing library.</p>
-                    <div class="path-picker">
-                        <input bind:value={config.launchbox_root} placeholder="Not set" readonly />
-                        <button class="btn-primary" onclick={() => pickPath('launchbox_root')}>Locate</button>
-                    </div>
-                </div>
-
-                <div class="setting-item">
-                    <h3>Maintenance</h3>
-                    <div class="tool-actions">
-                        <button class="btn-small" onclick={loadPlatforms}>Force Library Reload</button>
-                        <button class="btn-small" onclick={checkForUpdates}>Check Update Now</button>
+                        <input bind:value={config.data_root} placeholder="Not set" readonly />
+                        <button class="btn-primary" onclick={setMasterFolder}>Change</button>
                     </div>
                 </div>
             </div>
@@ -447,316 +468,47 @@
 </div>
 
 <style>
-    :global(body) {
-        margin: 0;
-        padding: 0;
-        background: #121212;
-        color: #e0e0e0;
-        font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    }
-
-    .app {
-        display: flex;
-        height: 100vh;
-        overflow: hidden;
-    }
-
-    .sidebar {
-        width: 280px;
-        background: #181818;
-        padding: 20px;
-        border-right: 1px solid #282828;
-        display: flex;
-        flex-direction: column;
-        gap: 20px;
-        position: relative;
-    }
-
-    .sidebar .header {
-        display: flex;
-        align-items: center;
-        gap: 15px;
-    }
-
-    .hamburger {
-        background: none;
-        border: none;
-        cursor: pointer;
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        padding: 5px;
-    }
-
-    .hamburger .bar {
-        display: block;
-        width: 20px;
-        height: 2px;
-        background: #fff;
-        border-radius: 2px;
-    }
-
-    .title-wrap {
-        display: flex;
-        flex-direction: column;
-    }
-
-    .version-tag {
-        font-size: 0.6rem;
-        color: #555;
-        font-weight: bold;
-        margin-top: -2px;
-    }
-
-    .sidebar h2 {
-        margin: 0;
-        font-size: 1.1rem;
-        font-weight: 600;
-        color: #fff;
-    }
-
-    .menu-dropdown {
-        position: absolute;
-        top: 60px;
-        left: 20px;
-        right: 20px;
-        background: #282828;
-        border: 1px solid #383838;
-        border-radius: 8px;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-        z-index: 100;
-        overflow: hidden;
-    }
-
-    .menu-dropdown button {
-        width: 100%;
-        padding: 12px 15px;
-        background: none;
-        border: none;
-        color: #ddd;
-        text-align: left;
-        cursor: pointer;
-        font-size: 0.9rem;
-    }
-
-    .menu-dropdown button:hover {
-        background: #383838;
-        color: #fff;
-    }
-
-    .sidebar-footer {
-        margin-top: auto;
-        padding-top: 10px;
-        border-top: 1px solid #222;
-    }
-
-    .update-status-minimal {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        color: #3b82f6;
-        font-size: 0.7rem;
-        padding: 5px;
-    }
-
-    .mini-spinner {
-        width: 12px;
-        height: 12px;
-        border: 2px solid rgba(59, 130, 246, 0.2);
-        border-left-color: #3b82f6;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-        to { transform: rotate(360deg); }
-    }
-
-    .platform-list {
-        flex: 1;
-        overflow-y: auto;
-    }
-
-    .platform-list h3 {
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        color: #555;
-        margin-bottom: 10px;
-        letter-spacing: 1px;
-    }
-
-    .sidebar ul {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-    }
-
-    .sidebar li button {
-        width: 100%;
-        padding: 8px 12px;
-        background: none;
-        border: none;
-        color: #aaa;
-        text-align: left;
-        cursor: pointer;
-        border-radius: 4px;
-        font-size: 0.9rem;
-    }
-
-    .sidebar li.active button {
-        background: #3b82f6;
-        color: white;
-    }
-
-    .content {
-        flex: 1;
-        padding: 30px;
-        overflow-y: auto;
-        background: #121212;
-        position: relative;
-    }
-
-    .view-header {
-        margin-bottom: 30px;
-    }
-
-    .title-area h1 {
-        margin: 0;
-        font-size: 2rem;
-    }
-
-    .meta {
-        display: flex;
-        gap: 15px;
-        align-items: center;
-        margin-top: 5px;
-    }
-
-    .count { color: #555; font-size: 0.9rem; }
-    .emu-tag { background: #333; color: #aaa; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; }
-    .emu-tag.warning { background: #991b1b; color: white; }
-
-    .game-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-        gap: 20px;
-    }
-
-    .game-card {
-        background: #181818;
-        border-radius: 8px;
-        overflow: hidden;
-        border: 1px solid #282828;
-        transition: transform 0.2s;
-        text-align: left;
-        padding: 0;
-        cursor: pointer;
-        color: inherit;
-        font-family: inherit;
-    }
-
-    .game-card:hover {
-        transform: scale(1.03);
-        border-color: #383838;
-    }
-
-    .thumbnail {
-        aspect-ratio: 3/4;
-        background: #222;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        text-align: center;
-        padding: 10px;
-        font-size: 0.8rem;
-        color: #444;
-    }
-
+    :global(body) { margin: 0; padding: 0; background: #121212; color: #e0e0e0; font-family: 'Segoe UI', system-ui, sans-serif; }
+    .app { display: flex; height: 100vh; overflow: hidden; }
+    .sidebar { width: 280px; background: #181818; padding: 20px; border-right: 1px solid #282828; display: flex; flex-direction: column; gap: 20px; position: relative; }
+    .sidebar .header { display: flex; align-items: center; gap: 15px; }
+    .hamburger { background: none; border: none; cursor: pointer; display: flex; flex-direction: column; gap: 4px; }
+    .hamburger .bar { display: block; width: 20px; height: 2px; background: #fff; border-radius: 2px; }
+    .title-wrap { display: flex; flex-direction: column; }
+    .version-tag { font-size: 0.6rem; color: #555; font-weight: bold; margin-top: -2px; }
+    .sidebar h2 { margin: 0; font-size: 1.1rem; font-weight: 600; color: #fff; }
+    .menu-dropdown { position: absolute; top: 60px; left: 20px; right: 20px; background: #282828; border: 1px solid #383838; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); z-index: 100; overflow: hidden; }
+    .menu-dropdown button { width: 100%; padding: 12px 15px; background: none; border: none; color: #ddd; text-align: left; cursor: pointer; font-size: 0.9rem; }
+    .menu-dropdown button:hover { background: #383838; color: #fff; }
+    .sidebar-footer { margin-top: auto; padding-top: 10px; border-top: 1px solid #222; }
+    .update-status-minimal { display: flex; align-items: center; gap: 10px; color: #3b82f6; font-size: 0.7rem; }
+    .mini-spinner { width: 12px; height: 12px; border: 2px solid rgba(59, 130, 246, 0.2); border-left-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .platform-list { flex: 1; overflow-y: auto; }
+    .platform-list h3 { font-size: 0.75rem; text-transform: uppercase; color: #555; margin-bottom: 10px; }
+    .sidebar ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; }
+    .sidebar li button { width: 100%; padding: 8px 12px; background: none; border: none; color: #aaa; text-align: left; cursor: pointer; border-radius: 4px; }
+    .sidebar li.active button { background: #3b82f6; color: white; }
+    .content { flex: 1; padding: 30px; overflow-y: auto; background: #121212; position: relative; }
+    .game-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 20px; }
+    .game-card { background: #181818; border-radius: 8px; overflow: hidden; border: 1px solid #282828; text-align: left; padding: 0; cursor: pointer; color: inherit; }
+    .thumbnail { aspect-ratio: 3/4; background: #222; display: flex; align-items: center; justify-content: center; text-align: center; }
     .thumbnail img { width: 100%; height: 100%; object-fit: cover; }
-
-    .placeholder { padding: 15px; }
-
     .info { padding: 12px; }
     .info h3 { margin: 0; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-    /* Wizard & Overlays */
-    .update-overlay, .wizard-overlay {
-        position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0,0,0,0.9);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 2000;
-        backdrop-filter: blur(5px);
-    }
-
-    .update-card, .wizard-card {
-        background: #1e1e1e;
-        padding: 40px;
-        border-radius: 16px;
-        border: 1px solid #333;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.8);
-        text-align: center;
-    }
-
-    .spinner {
-        width: 60px; height: 60px;
-        border: 4px solid rgba(59, 130, 246, 0.1);
-        border-left-color: #3b82f6;
-        border-radius: 50%;
-        margin: 0 auto;
-        animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    .settings-view, .debug-view { max-width: 900px; }
-
-    .setting-item {
-        background: #181818;
-        padding: 20px;
-        border-radius: 12px;
-        border: 1px solid #282828;
-        margin-top: 20px;
-    }
-
-    .path-picker {
-        display: flex; gap: 10px; margin-top: 15px;
-    }
-
-    .path-picker input {
-        flex: 1; background: #111; border: 1px solid #333; color: #fff; padding: 10px; border-radius: 6px;
-    }
-
+    .update-overlay, .wizard-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 2000; backdrop-filter: blur(5px); }
+    .update-card, .wizard-card { background: #1e1e1e; padding: 40px; border-radius: 16px; border: 1px solid #333; box-shadow: 0 20px 60px rgba(0,0,0,0.8); text-align: center; max-width: 500px; }
+    .spinner { width: 60px; height: 60px; border: 4px solid rgba(59, 130, 246, 0.1); border-left-color: #3b82f6; border-radius: 50%; margin: 0 auto; animation: spin 1s linear infinite; }
     .btn-primary { background: #3b82f6; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; }
-    .btn-save { background: #10b981; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; margin-top: 10px; }
-    .btn-small { background: #333; color: #ccc; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
-    .btn-danger { background: #991b1b; color: white; }
-
-    .log-container {
-        background: #000;
-        padding: 20px;
-        border-radius: 8px;
-        height: 500px;
-        overflow-y: auto;
-        font-family: monospace;
-        font-size: 0.85rem;
-        border: 1px solid #222;
-    }
-
-    .log-entry { margin-bottom: 5px; border-bottom: 1px solid #111; padding-bottom: 5px; }
-    .log-time { color: #555; margin-right: 10px; }
+    .btn-large { padding: 15px 30px; font-size: 1.1rem; }
+    .btn-retroarch { background: #df4a1f; color: white; border: none; padding: 12px; border-radius: 6px; width: 100%; cursor: pointer; font-weight: 600; margin: 10px 0; }
+    .or-divider { margin: 10px 0; color: #444; font-size: 0.8rem; font-weight: bold; }
+    .steps { display: flex; gap: 10px; margin-bottom: 20px; }
+    .step { flex: 1; height: 4px; background: #333; border-radius: 2px; }
+    .step.active { background: #3b82f6; }
+    .log-container { background: #000; padding: 20px; border-radius: 8px; height: 500px; overflow-y: auto; font-family: monospace; font-size: 0.85rem; border: 1px solid #222; }
+    .log-entry { margin-bottom: 5px; border-bottom: 1px solid #111; }
     .log-msg { color: #0f0; }
-
-    .welcome-screen {
-        display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; opacity: 0.5;
-    }
-    .welcome-screen .icon { font-size: 5rem; margin-bottom: 20px; }
-
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    td { padding: 12px; border-bottom: 1px solid #282828; }
+    .welcome-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; opacity: 0.5; }
+    .emu-tag { background: #333; color: #aaa; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; margin-top: 5px; display: inline-block; }
 </style>

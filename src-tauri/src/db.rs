@@ -2,15 +2,20 @@ use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
 use std::fs;
 use std::path::Path;
 
-pub async fn init_db(app_dir: &Path) -> Result<SqlitePool, sqlx::Error> {
-    let db_path = app_dir.join("library.db");
+pub async fn init_db(db_dir: &Path) -> Result<SqlitePool, sqlx::Error> {
+    if !db_dir.exists() {
+        fs::create_dir_all(db_dir).expect("Failed to create database directory");
+    }
+    let db_path = db_dir.join("library.db");
+    let db_url = format!("sqlite:{}", db_path.to_string_lossy());
+    
     if !db_path.exists() {
         fs::File::create(&db_path).expect("Failed to create database file");
     }
 
     let pool = SqlitePoolOptions::new()
         .max_connections(5)
-        .connect(&db_path.to_string_lossy())
+        .connect(&db_url)
         .await?;
 
     sqlx::query(
