@@ -296,7 +296,7 @@
             </button>
             <div class="title-wrap">
                 <h2>TurboLaunch</h2>
-                <span class="version-tag">v0.1.18</span>
+                <span class="version-tag">v0.1.19</span>
             </div>
         </div>
 
@@ -419,17 +419,25 @@
                         <span class="emu-tag">Default: {platformEmulators[0].name}</span>
                     {/if}
                 </header>
-                <div class="game-grid">
-                    {#each games as game}
-                        <button class="game-card" ondblclick={() => playGame(game.id)}>
-                            <div class="thumbnail">
-                                {#if thumbnails[game.id]}<img src={thumbnails[game.id]} alt={game.title} />
-                                {:else}<div class="placeholder"><span>{game.title}</span></div>{/if}
-                            </div>
-                            <div class="info"><h3>{game.title}</h3></div>
-                        </button>
-                    {/each}
-                </div>
+                                <div class="game-grid">
+                                    {#each games as game}
+                                        <div class="game-card">
+                                            <div class="thumbnail" ondblclick={() => playGame(game.id)}>
+                                                {#if thumbnails[game.id]}
+                                                    <img src={thumbnails[game.id]} alt={game.title} />
+                                                {:else}
+                                                    <div class="placeholder"><span>{game.title}</span></div>
+                                                {/if}
+                                                <div class="card-overlay">
+                                                    <button class="btn-play-icon" onclick={() => playGame(game.id)}>▶</button>
+                                                </div>
+                                            </div>
+                                            <div class="info">
+                                                <h3>{game.title}</h3>
+                                            </div>
+                                        </div>
+                                    {/each}
+                                </div>
             {:else}
                 <div class="welcome-screen"><div class="icon">📦</div><h1>Drag & Drop ROMs Here</h1></div>
             {/if}
@@ -439,12 +447,14 @@
                 <button class="btn-retroarch" onclick={runAutoEmulatorSetup}>🚀 Run Auto-Setup (RetroArch, PCSX2, RPCS3, xemu)</button>
                 <div class="emulator-list">
                     <table>
-                        {#each emulators as emu}
-                            <tr>
-                                <td><strong>{emu.name}</strong></td>
-                                <td><button class="btn-small" onclick={() => linkEmulator(emu.id)}>Set Default for {selectedPlatform?.name || '...'}</button></td>
-                            </tr>
-                        {/each}
+                        <tbody>
+                            {#each emulators as emu}
+                                <tr>
+                                    <td><strong>{emu.name}</strong></td>
+                                    <td><button class="btn-small" onclick={() => linkEmulator(emu.id)}>Set Default for {selectedPlatform?.name || '...'}</button></td>
+                                </tr>
+                            {/each}
+                        </tbody>
                     </table>
                 </div>
             </div>
@@ -490,7 +500,7 @@
     .content { flex: 1; padding: 30px; overflow-y: auto; background: #121212; position: relative; }
     .game-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 20px; }
     .game-card { background: #181818; border-radius: 8px; overflow: hidden; border: 1px solid #282828; text-align: left; padding: 0; cursor: pointer; color: inherit; }
-    .thumbnail { aspect-ratio: 3/4; background: #222; display: flex; align-items: center; justify-content: center; text-align: center; }
+    .thumbnail { aspect-ratio: 3/4; background: #222; display: flex; align-items: center; justify-content: center; text-align: center; position: relative; }
     .thumbnail img { width: 100%; height: 100%; object-fit: cover; }
     .info { padding: 12px; }
     .info h3 { margin: 0; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
