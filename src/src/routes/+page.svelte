@@ -39,7 +39,7 @@
     let wizardImportResults = $state([]);
     let installingStatus = $state("");
 
-    const CURRENT_VERSION = "v0.1.36";
+    const CURRENT_VERSION = "v0.1.37";
 
     function addLog(message: string) {
         const timestamp = new Date().toLocaleTimeString();
@@ -214,7 +214,7 @@
                     addLog(errMsg);
                     updateError = errMsg;
                     if (config.data_root) invoke("report_version", { version: CURRENT_VERSION, nasPath: config.data_root, error: errMsg });
-                    isUpdating = false;
+                    isUpdating = false; isChecking = false;
                     updateStatus = "";
                 }
             } else {
@@ -327,7 +327,7 @@
     }
 
     async function resetUpdateState() {
-        isUpdating = false;
+        isUpdating = false; isChecking = false;
         updateStatus = "";
         addLog("Manual Update Reset triggered.");
         checkForUpdates();
