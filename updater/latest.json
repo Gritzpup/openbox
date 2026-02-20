@@ -1,15 +1,11 @@
 {
-  "version": "0.1.55",
-  "notes": "v0.1.55: Improved background initialization and robust update check.",
-  "pub_date": "2026-02-20T09:04:09Z",
+  "version": "0.1.56",
+  "notes": "v0.1.56: Added General Settings for NAS Media Root and improved Auto-Updater.",
+  "pub_date": "2026-02-20T09:10:00Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSVHlmR2ZLTTlTTFpjTXBtaG12dUN2STVqWFgrZ0JtdllnSklrUFNjMmpRNitINnI3V1Y2TWtYbmJpNFJhU21FRTlwUkhRbzROdmNUcExDcExQRkpwa1FaK1hkTDZLV1FFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcxNTc4MjQ5CWZpbGU6VHVyYm9MYXVuY2hfMC4xLjU1X3g2NC1zZXR1cC5leGUKU2lZQ1BrVFRudGU1aHA5UHN0OXlEM3RWa29YWWJ0K0Q5MnVqcFdUVzBOY2tqMmczeS94blh6bU0rdVkwYVh1UlhGR21iZmk4UlpwQmJpSURHRzlWRFE9PQo=",
-      "url": "https://github.com/Gritzpup/openbox/releases/download/v0.1.55/TurboLaunch_0.1.55_x64-setup.exe"
-    },
-    "linux-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSMGZueEwvUlRSNnRnWkhyS3lXNU9pWXd6c09kaTFlK2dIZC9qYWVyZlBqcnYwN3VPQ2daNW9jczIrVEZSY203bDh2K2JTTmlmTzFoQjhIdkMySWNkSW92WFQ0RHFLb3dZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcxNTc1OTg4CWZpbGU6VHVyYm9MYXVuY2hfMC4xLjUyX2FtZDY0LkFwcEltYWdlCm5rakpXMGpHRTcwTXV6dmdqNTRxRG1nb2Z4dFhCZlZkankxU1o4UCs2WlpjbGxIaEtGbXFPNXBmait4UWFCTnNhL0hxOS9KclRjSEphMGp0bGZtQUFRPT0K",
-      "url": "https://github.com/Gritzpup/openbox/releases/download/v0.1.54/TurboLaunch_0.1.54_amd64.AppImage"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSVHlmR2ZLTTlTTFFTNGxobDBoc0tjdFZYZm4xS3MyNU9HMnFvTzZqb2lOWFZtK3pXeXpIbG13dlUyckxFVU5nbk1WOUc2TzYxSGkxdnQ4V24wMTBGTVRCQlZtVk15NndjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcxNTc4NTk5CWZpbGU6VHVyYm9MYXVuY2hfMC4xLjU2X3g2NC1zZXR1cC5leGUKMjZVd1ZJditCRnZ1ZS9iK2hiN3dNVWR5VGdpbGhJdkc3K1RHUUx2MEhHV1k0NytLdGp4Q3J6QW9TYy9JcWJPVVlXVStJZWpHUG02N3Zzb01WSDV0QkE9PQo=",
+      "url": "https://github.com/Gritzpup/openbox/releases/download/v0.1.56/TurboLaunch_0.1.56_x64-setup.exe"
     }
   }
 }

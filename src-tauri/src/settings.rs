@@ -70,10 +70,10 @@ pub async fn sync_emulators(
     };
 
     let required = [
-        ("retroarch", "1.20.0"),
+        ("retroarch", "1.22.2"),
         ("pcsx2", "2.2.0"),
-        ("rpcs3", "0.0.35"),
-        ("xemu", "latest")
+        ("rpcs3", "0.0.38"),
+        ("xemu", "0.8.133")
     ];
 
     for (id, latest_ver) in required {
@@ -110,7 +110,7 @@ pub async fn install_emulator(
     
     let (url, name, zip_name, sub_folder, exe_name) = match emu_id.as_str() {
         "retroarch" => (
-            "https://buildbot.libretro.com/stable/1.20.0/windows/x86_64/RetroArch.zip",
+            "https://buildbot.libretro.com/stable/1.22.2/windows/x86_64/RetroArch.zip",
             "RetroArch",
             "RetroArch.zip",
             "RetroArch",
@@ -124,14 +124,14 @@ pub async fn install_emulator(
             "pcsx2-qt.exe"
         ),
         "rpcs3" => (
-            "https://github.com/RPCS3/rpcs3-binaries-win/releases/download/build-9060df60cbdfcfbd6df060660606060606060606/rpcs3_v0.0.35-17415_win64.zip",
+            "https://github.com/RPCS3/rpcs3-binaries-win/releases/download/build-ff9401303b387cb11b97cf5984a9ab7672f487fc/rpcs3_v0.0.38-18441_win64.zip",
             "RPCS3",
             "rpcs3.zip",
             "RPCS3",
             "rpcs3.exe"
         ),
         "xemu" => (
-            "https://github.com/xemu-project/xemu/releases/latest/download/xemu-windows-x86_64.zip",
+            "https://github.com/xemu-project/xemu/releases/download/v0.8.133/xemu-0.8.133-windows-x86_64.zip",
             "xemu",
             "xemu.zip",
             "xemu",
