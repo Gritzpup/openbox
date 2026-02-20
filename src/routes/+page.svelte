@@ -83,7 +83,7 @@
         "Arcade", "MAME", "SNK Neo Geo AES", "Atari 2600", "Atari 5200", "Atari 7800", "PC"
     ];
 
-    const CURRENT_VERSION = "v0.1.73";
+    const CURRENT_VERSION = "v0.1.74";
 
     function addLog(message: string) {
         const timestamp = new Date().toLocaleTimeString();
@@ -456,11 +456,14 @@
         // Async background tasks
         (async () => {
             try {
+                addLog("Starting Drag & Drop listener...");
                 const unlisten = await getCurrentWindow().onDragDropEvent((event) => {
-                    if (event.payload.type === 'drop') {
+                    console.log("DragDrop Event:", event);
+                    if (event.type === 'drop') {
+                        addLog(`File drop detected! Type: ${event.type}, Paths: ${event.paths.length}`);
                         isDragging = false;
-                        handleFileDrop(event.payload.paths);
-                    } else if (event.payload.type === 'enter' || event.payload.type === 'over') {
+                        handleFileDrop(event.paths);
+                    } else if (event.type === 'enter' || event.type === 'over') {
                         isDragging = true;
                     } else {
                         isDragging = false;
@@ -469,8 +472,11 @@
                 
                 await loadConfig();
                 if (config.data_root) {
+                    addLog("Config loaded in onMount, loading platforms and reporting version...");
                     await loadPlatforms();
-                    invoke("report_version", { version: CURRENT_VERSION, nas_path: config.data_root, error: null });
+                    await invoke("report_version", { version: CURRENT_VERSION, nas_path: config.data_root, error: null });
+                } else {
+                    addLog("Warning: No data_root found during onMount.");
                 }
             } catch (err) {
                 addLog(`Startup background error: ${err}`);
