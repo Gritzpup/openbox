@@ -128,25 +128,37 @@
     async function checkForUpdates() {
         if (isUpdating) return;
         try {
-            console.log("Checking for updates...");
+            await invoke("log_to_nas", { message: "Checking for updates...", nasPath: config.global_media_root });
             const update = await check();
             if (update) {
-                console.log(`Update v${update.version} available!`);
                 isUpdating = true;
-                updateStatus = `Updating to v${update.version}...`;
-                
-                // Track download progress if needed, but for now simple overlay
-                await update.downloadAndInstall();
-                
-                updateStatus = "Relaunching...";
+                updateStatus = `Update v${update.version} found. Starting download...`;
+                await invoke("log_to_nas", { message: `Update v${update.version} found. Starting download...`, nasPath: config.global_media_root });
+
+                await update.downloadAndInstall((progress) => {
+                    switch (progress.event) {
+                        case 'Started':
+                            updateStatus = "Download started...";
+                            break;
+                        case 'Progress':
+                            const percent = Math.round((progress.data.chunkLength / progress.data.contentLength) * 100);
+                            updateStatus = `Downloading v${update.version}... ${percent}%`;
+                            break;
+                        case 'Finished':
+                            updateStatus = "Download finished. Installing...";
+                            break;
+                    }
+                });
+
+                await invoke("log_to_nas", { message: "Update installed successfully. Relaunching.", nasPath: config.global_media_root });
+                updateStatus = "Installation complete. Relaunching...";
                 setTimeout(async () => {
                     await relaunch();
-                }, 1000);
-            } else {
-                console.log("App is up to date.");
+                }, 1500);
             }
         } catch (e) {
             console.error("Update check failed", e);
+            await invoke("log_to_nas", { message: `Update error: ${e}`, nasPath: config.global_media_root });
             isUpdating = false;
         }
     }
@@ -218,7 +230,7 @@
             </button>
             <div class="title-wrap">
                 <h2>TurboLaunch</h2>
-                <span class="version-tag">v0.1.8</span>
+                <span class="version-tag">v0.1.9</span>
             </div>
         </div>
 

@@ -21,6 +21,7 @@ SIG_FILE="${BUNDLE_DIR}/${EXE_NAME}.sig"
 
 echo "Signing installer..."
 npx @tauri-apps/cli signer sign "${BUNDLE_DIR}/${EXE_NAME}"
+SIGNATURE=$(cat "${SIG_FILE}")
 
 echo "Update files generated. Copying to NAS..."
 

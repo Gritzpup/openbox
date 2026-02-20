@@ -19,6 +19,24 @@ fn greet(name: &str) -> String {
     format!("Hello, {}!", name)
 }
 
+#[tauri::command]
+async fn log_to_nas(message: String, nas_path: Option<String>) {
+    if let Some(path) = nas_path {
+        let log_file = std::path::PathBuf::from(path).join("turbolaunch_telemetry.log");
+        let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+        let log_line = format!("[{}] {}\n", timestamp, message);
+        let _ = fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(log_file)
+            .map(|mut f| {
+                use std::io::Write;
+                let _ = f.write_all(log_line.as_bytes());
+            });
+    }
+    println!("Log: {}", message);
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -90,7 +108,8 @@ pub fn run() {
             library::load_library, library::get_games_for_platform, library::get_platforms, library::get_game_images, library::add_game,
             media_cache::generate_thumbnail,
             settings::get_emulators, settings::save_emulator, settings::delete_emulator,
-            scraper::scrape_game_art, scraper::download_art
+            scraper::scrape_game_art, scraper::download_art,
+            log_to_nas
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
