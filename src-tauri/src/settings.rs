@@ -5,6 +5,7 @@ use tauri::Manager;
 use std::path::PathBuf;
 use std::fs;
 use zip_extract;
+use sevenz_rust;
 
 #[tauri::command]
 pub async fn scaffold_platform_directories(
@@ -72,7 +73,7 @@ pub async fn sync_emulators(
     let required = [
         ("retroarch", "1.22.2"),
         ("pcsx2", "2.2.0"),
-        ("rpcs3", "0.0.38"),
+        ("rpcs3", "0.0.39"),
         ("xemu", "0.8.133")
     ];
 
@@ -110,23 +111,23 @@ pub async fn install_emulator(
     
     let (url, name, zip_name, sub_folder, exe_name) = match emu_id.as_str() {
         "retroarch" => (
-            "https://buildbot.libretro.com/stable/1.22.2/windows/x86_64/RetroArch.zip",
+            "https://buildbot.libretro.com/stable/1.22.2/windows/x86_64/RetroArch.7z",
             "RetroArch",
-            "RetroArch.zip",
+            "RetroArch.7z",
             "RetroArch",
             "retroarch.exe"
         ),
         "pcsx2" => (
-            "https://github.com/PCSX2/pcsx2/releases/download/v2.2.0/pcsx2-v2.2.0-windows-x64-Qt.zip",
+            "https://github.com/PCSX2/pcsx2/releases/download/v2.2.0/pcsx2-v2.2.0-windows-x64-Qt.7z",
             "PCSX2",
-            "pcsx2.zip",
+            "pcsx2.7z",
             "PCSX2",
             "pcsx2-qt.exe"
         ),
         "rpcs3" => (
-            "https://github.com/RPCS3/rpcs3-binaries-win/releases/download/build-ff9401303b387cb11b97cf5984a9ab7672f487fc/rpcs3_v0.0.38-18441_win64.zip",
+            "https://github.com/RPCS3/rpcs3-binaries-win/releases/download/build-aaf84a844542cf0697c19cb0d8579eff705b10c5/rpcs3-v0.0.39-18800-aaf84a84_win64_msvc.7z",
             "RPCS3",
-            "rpcs3.zip",
+            "rpcs3.7z",
             "RPCS3",
             "rpcs3.exe"
         ),
@@ -175,8 +176,12 @@ pub async fn install_emulator(
     println!("{}", log_msg);
     let _ = crate::internal_log_to_nas(log_msg, Some(master_path.clone())).await;
 
-    let file = fs::File::open(&dest_path).map_err(|e| format!("Open error: {}", e))?;
-    zip_extract::extract(file, &extract_path, true).map_err(|e| format!("Extraction failed for {}: {}", name, e))?;
+    if zip_name.ends_with(".7z") {
+        sevenz_rust::decompress_file(&dest_path, &extract_path).map_err(|e| format!("Extraction failed for {}: {}", name, e))?;
+    } else {
+        let file = fs::File::open(&dest_path).map_err(|e| format!("Open error: {}", e))?;
+        zip_extract::extract(file, &extract_path, true).map_err(|e| format!("Extraction failed for {}: {}", name, e))?;
+    }
 
     // 3. Cleanup
     let _ = fs::remove_file(dest_path);
