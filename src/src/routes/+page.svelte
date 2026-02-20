@@ -167,17 +167,24 @@
             const update = await check();
             if (update) {
                 isUpdating = true;
-                updateStatus = `Refreshing to v${update.version}...`;
+                addLog(`Background update v${update.version} started...`);
+                
                 await update.downloadAndInstall((progress) => {
                     if (progress.event === 'Progress') {
                         const percent = Math.round((progress.data.chunkLength / progress.data.contentLength) * 100);
-                        updateStatus = `Refreshing... ${percent}%`;
+                        updateStatus = `v${update.version} (${percent}%)`;
                     }
                 });
-                await relaunch();
+                
+                updateStatus = "Restarting...";
+                addLog("Update installed. Relaunching now.");
+                setTimeout(async () => {
+                    await relaunch();
+                }, 100); // Super fast relaunch
             }
         } catch (e) {
             isUpdating = false;
+            updateStatus = "";
         }
     }
 
@@ -253,7 +260,7 @@
             </button>
             <div class="title-wrap">
                 <h2>TurboLaunch</h2>
-                <span class="version-tag">v0.1.14</span>
+                <span class="version-tag">v0.1.15</span>
             </div>
         </div>
 
@@ -288,6 +295,16 @@
     </aside>
 
     <main class="content">
+        {#if updateStatus === "Restarting..."}
+            <div class="update-overlay">
+                <div class="update-card">
+                    <div class="spinner"></div>
+                    <h2>Refreshing...</h2>
+                    <p>Installing update. Back in a second!</p>
+                </div>
+            </div>
+        {/if}
+
         {#if setupWizardOpen}
             <div class="wizard-overlay">
                 <div class="wizard-card welcome-card">
@@ -295,16 +312,6 @@
                     <h1>Welcome to TurboLaunch</h1>
                     <p>To keep your collection synced across all your computers, please select a folder on your **NAS** to store your database, settings, and media.</p>
                     <button class="btn-primary btn-large" onclick={setMasterFolder}>Select Master NAS Folder</button>
-                </div>
-            </div>
-        {/if}
-
-        {#if isUpdating}
-            <div class="update-overlay">
-                <div class="update-card">
-                    <div class="spinner"></div>
-                    <h2>{updateStatus}</h2>
-                    <p>Refreshing TurboLaunch binary...</p>
                 </div>
             </div>
         {/if}
