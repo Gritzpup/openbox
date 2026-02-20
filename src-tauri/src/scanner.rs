@@ -177,15 +177,27 @@ pub async fn batch_import(
     }
 
     let path = Path::new(&folder_path);
-    if !path.exists() || !path.is_dir() {
-        return Err("Invalid folder path".to_string());
+    if !path.exists() {
+        return Err("Path does not exist".to_string());
     }
 
     let mut games_found = Vec::new();
-    let extensions = ["zip", "nes", "smc", "sfc", "iso", "bin", "cue", "gba", "gbc", "n64"];
+    let extensions = [
+        "zip", "nes", "smc", "sfc", "iso", "bin", "cue", "gba", "gbc", "n64",
+        "chd", "rvz", "7z", "pkg", "ps3", "3ds", "cia", "wud", "wux"
+    ];
 
-    for entry in WalkDir::new(path).into_iter().filter_map(|e| e.ok()) {
-        let p = entry.path();
+    let items_to_process: Vec<PathBuf> = if path.is_file() {
+        vec![path.to_path_buf()]
+    } else {
+        WalkDir::new(path)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .map(|e| e.path())
+            .collect()
+    };
+
+    for p in items_to_process {
         if p.is_file() {
             if let Some(ext) = p.extension().and_then(|e| e.to_str()) {
                 if extensions.contains(&ext.to_lowercase().as_str()) {

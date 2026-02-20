@@ -40,7 +40,7 @@
     let wizardImportResults = $state([]);
     let installingStatus = $state("");
 
-    const CURRENT_VERSION = "v0.1.58";
+    const CURRENT_VERSION = "v0.1.59";
 
     function addLog(message: string) {
         const timestamp = new Date().toLocaleTimeString();
@@ -351,11 +351,11 @@
         // Async background tasks
         (async () => {
             try {
-                const unlisten = await getCurrentWindow().onFileDropEvent((event) => {
+                const unlisten = await getCurrentWindow().onDragDropEvent((event) => {
                     if (event.payload.type === 'drop') {
                         isDragging = false;
                         handleFileDrop(event.payload.paths);
-                    } else if (event.payload.type === 'hover') {
+                    } else if (event.payload.type === 'enter' || event.payload.type === 'over') {
                         isDragging = true;
                     } else {
                         isDragging = false;
