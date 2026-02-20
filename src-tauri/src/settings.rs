@@ -7,6 +7,34 @@ use std::fs;
 use zip_extract;
 
 #[tauri::command]
+pub async fn scaffold_platform_directories(
+    app_handle: tauri::AppHandle,
+    master_path: String,
+    platform_id: String,
+) -> Result<(), String> {
+    let base_image_dir = PathBuf::from(&master_path).join("Images").join(&platform_id);
+    let base_video_dir = PathBuf::from(&master_path).join("Videos").join(&platform_id);
+
+    let image_subfolders = [
+        "Box - 3D", "Box - Front", "Box - Back", "Cart - 3D", "Cart - Front",
+        "Clear Logo", "Disc", "Screenshot - Gameplay", "Fanart - Background"
+    ];
+
+    for folder in image_subfolders {
+        let path = base_image_dir.join(folder);
+        if !path.exists() {
+            fs::create_dir_all(&path).map_err(|e| e.to_string())?;
+        }
+    }
+
+    if !base_video_dir.exists() {
+        fs::create_dir_all(&base_video_dir).map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn setup_emulator_environment(
     app_handle: tauri::AppHandle,
     master_path: String,

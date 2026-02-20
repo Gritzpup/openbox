@@ -34,10 +34,11 @@
     let wizardEmulator = $state(null);
     let wizardScrape3D = $state(true);
     let wizardScrapeCart = $state(true);
+    let wizardScrapeVideo = $state(true);
     let wizardImportResults = $state([]);
     let installingStatus = $state("");
 
-    const CURRENT_VERSION = "v0.1.27";
+    const CURRENT_VERSION = "v0.1.28";
 
     function addLog(message: string) {
         const timestamp = new Date().toLocaleTimeString();
@@ -235,6 +236,14 @@
         wizardStep = 4;
         loading = true;
         try {
+            // 1. Scaffold directories
+            if (config.data_root) {
+                await invoke("scaffold_platform_directories", { 
+                    masterPath: config.data_root, 
+                    platformId: wizardPlatform 
+                });
+            }
+
             if (wizardEmulator) {
                 await invoke("link_platform_emulator", {
                     platformId: wizardPlatform,
@@ -249,6 +258,30 @@
                     platformId: wizardPlatform,
                     mediaRoot: null 
                 });
+                
+                // Trigger Background Downloads
+                for (const title of res) {
+                    try {
+                        const scraped = await invoke("scrape_game_art", { platform: wizardPlatform, title });
+                        const mediaRoot = config.data_root || config.global_media_root;
+                        
+                        if (wizardScrape3D && scraped.box_3d_url) {
+                            const dest = `${mediaRoot}/Images/${wizardPlatform}/Box - 3D/${title}-01.png`;
+                            invoke("download_art", { url: scraped.box_3d_url, destinationPath: dest });
+                        }
+                        if (wizardScrapeCart && scraped.cart_3d_url) {
+                            const dest = `${mediaRoot}/Images/${wizardPlatform}/Cart - 3D/${title}-01.png`;
+                            invoke("download_art", { url: scraped.cart_3d_url, destinationPath: dest });
+                        }
+                        if (wizardScrapeVideo && scraped.video_url) {
+                            const dest = `${mediaRoot}/Videos/${wizardPlatform}/${title}-01.mp4`;
+                            invoke("download_art", { url: scraped.video_url, destinationPath: dest });
+                        }
+                    } catch (scrapeErr) {
+                        addLog(`Download failed for ${title}: ${scrapeErr}`);
+                    }
+                }
+                
                 results.push(...res);
             }
             wizardImportResults = results;
@@ -433,6 +466,7 @@
                             <div class="art-options">
                                 <label class="checkbox"><input type="checkbox" bind:checked={wizardScrape3D} /> 3D Box Art</label>
                                 <label class="checkbox"><input type="checkbox" bind:checked={wizardScrapeCart} /> 3D Cartridge Art</label>
+                                <label class="checkbox"><input type="checkbox" bind:checked={wizardScrapeVideo} /> Gameplay Videos</label>
                             </div>
                             <div class="wizard-actions">
                                 <button class="btn-back" onclick={() => wizardStep = 2}>Back</button>
