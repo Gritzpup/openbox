@@ -70,6 +70,7 @@
     });
     let wizardImportResults = $state([]);
     let installingStatus = $state("");
+    let githubBuildStatus = $state({ status: "", conclusion: "", version: "" });
 
     const STANDARD_CATEGORIES = ["Consoles", "Handhelds", "Arcade", "Computers"];
 
@@ -82,7 +83,7 @@
         "Arcade", "MAME", "SNK Neo Geo AES", "Atari 2600", "Atari 5200", "Atari 7800", "PC"
     ];
 
-    const CURRENT_VERSION = "v0.1.72";
+    const CURRENT_VERSION = "v0.1.73";
 
     function addLog(message: string) {
         const timestamp = new Date().toLocaleTimeString();
@@ -229,6 +230,9 @@
         isChecking = true;
         updateStatus = "Checking...";
         const checkStartTime = Date.now();
+        
+        // Refresh build status too
+        await checkGithubBuildStatus();
         
         try {
             addLog("Update engine: Starting check...");
@@ -432,12 +436,22 @@
         checkForUpdates();
     }
 
+    async function checkGithubBuildStatus() {
+        try {
+            githubBuildStatus = await invoke("get_build_status");
+        } catch (e) {
+            console.error("Failed to check build status:", e);
+        }
+    }
+
     onMount(() => {
         addLog("App mounting...");
         
         // Start updates immediately
         checkForUpdates();
+        checkGithubBuildStatus();
         const updateInterval = setInterval(checkForUpdates, 30000);
+        const buildStatusInterval = setInterval(checkGithubBuildStatus, 60000);
 
         // Async background tasks
         (async () => {
@@ -465,6 +479,7 @@
 
         return () => {
             clearInterval(updateInterval);
+            clearInterval(buildStatusInterval);
         };
     });
 </script>
@@ -536,8 +551,14 @@
                 </div>
             {/if}
             <div class="update-status-minimal">
-                <button class="mini-spinner-btn" onclick={checkForUpdates} title="Check for updates now">
-                    <div class="mini-spinner" class:rotating={isUpdating || isChecking}></div>
+                <button class="mini-spinner-btn" onclick={checkForUpdates} 
+                    title={githubBuildStatus.status === 'in_progress' ? 'GitHub Build In Progress...' : 
+                           githubBuildStatus.conclusion === 'failure' ? 'Last Build Failed' : 'Check for updates now'}>
+                    <div class="mini-spinner" 
+                        class:rotating={isUpdating || isChecking || githubBuildStatus.status === 'in_progress'} 
+                        class:building={githubBuildStatus.status === 'in_progress'}
+                        class:failed={githubBuildStatus.conclusion === 'failure'}>
+                    </div>
                 </button>
                 <div class="update-info">
                     {#if updateStatus}
@@ -892,6 +913,8 @@
     .mini-spinner-btn:hover .mini-spinner { border-left-color: #fff; }
     .mini-spinner { width: 10px; height: 10px; border: 2px solid rgba(255, 255, 255, 0.05); border-left-color: #333; border-radius: 50%; }
     .mini-spinner.rotating { border-left-color: #3b82f6; animation: spin 1s linear infinite; }
+    .mini-spinner.building { border-left-color: #f59e0b; }
+    .mini-spinner.failed { border-left-color: #ef4444; }
     .update-info { display: flex; flex-direction: column; }
     .status-msg { color: #3b82f6; font-weight: bold; }
     @keyframes spin { to { transform: rotate(360deg); } }

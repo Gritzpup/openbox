@@ -72,6 +72,30 @@ async fn log_to_nas(message: String, nas_path: Option<String>) {
     internal_log_to_nas(message, nas_path).await;
 }
 
+#[tauri::command]
+async fn get_build_status() -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let response = client.get("https://api.github.com/repos/Gritzpup/openbox/actions/runs?per_page=1")
+        .header("User-Agent", "TurboLaunch-App")
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    
+    let data: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
+    
+    if let Some(runs) = data["workflow_runs"].as_array() {
+        if let Some(last_run) = runs.first() {
+            return Ok(serde_json::json!({
+                "status": last_run["status"],
+                "conclusion": last_run["conclusion"],
+                "version": last_run["head_branch"]
+            }));
+        }
+    }
+    
+    Err("No build runs found".to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -174,7 +198,7 @@ pub fn run() {
             settings::set_data_root, settings::install_retroarch, settings::install_emulator, settings::setup_emulator_environment, settings::scaffold_platform_directories,
             settings::sync_emulators,
             scraper::scrape_game_art, scraper::download_art,
-            log_to_nas, report_version
+            log_to_nas, report_version, get_build_status
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
