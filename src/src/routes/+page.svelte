@@ -230,7 +230,7 @@
             </button>
             <div class="title-wrap">
                 <h2>TurboLaunch</h2>
-                <span class="version-tag">v0.1.9</span>
+                <span class="version-tag">v0.1.10</span>
             </div>
         </div>
 
@@ -244,22 +244,6 @@
             </div>
         {/if}
 
-        <div class="actions">
-            <button onclick={autoDetect} disabled={loading} class="btn-primary">
-                {loading ? 'Detecting...' : 'Auto-Detect'}
-            </button>
-        </div>
-
-        <div class="current-path" title={config.global_media_root}>
-            NAS Media: {config.global_media_root ? config.global_media_root.split('/').pop() : 'Not Set'}
-        </div>
-
-        {#if updateStatus}
-            <div class="update-banner">
-                {updateStatus}
-            </div>
-        {/if}
-
         <nav class="platform-list">
             <h3>Platforms</h3>
             <ul>
@@ -270,6 +254,14 @@
                 {/each}
             </ul>
         </nav>
+
+        <div class="sidebar-footer">
+            {#if updateStatus}
+                <div class="update-banner">
+                    {updateStatus}
+                </div>
+            {/if}
+        </div>
     </aside>
 
     <main class="content">
@@ -541,6 +533,10 @@
     .platform-list {
         flex: 1;
         overflow-y: auto;
+    }
+
+    .sidebar-footer {
+        margin-top: auto;
     }
 
     .sidebar ul {
