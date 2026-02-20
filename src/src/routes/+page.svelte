@@ -176,6 +176,7 @@
     async function checkForUpdates() {
         if (isUpdating) return;
         try {
+            invoke("report_version", { version: "v0.1.24", nasPath: config.data_root });
             const update = await check();
             if (update) {
                 isUpdating = true;
@@ -278,12 +279,14 @@
         checkForUpdates();
     }
 
-    onMount(async () => {
-        await loadConfig();
-        if (config.data_root) {
-            await loadPlatforms();
-        }
-        checkForUpdates();
+        onMount(async () => {
+            await loadConfig();
+            if (config.data_root) {
+                await loadPlatforms();
+                invoke("report_version", { version: "v0.1.24", nasPath: config.data_root });
+            }
+            
+            checkForUpdates();
         const updateInterval = setInterval(checkForUpdates, 30000);
         const unlisten = await getCurrentWindow().onFileDropEvent((event) => {
             if (event.payload.type === 'drop') handleFileDrop(event.payload.paths);
@@ -305,7 +308,7 @@
             </button>
             <div class="title-wrap">
                 <h2>TurboLaunch</h2>
-                <span class="version-tag">v0.1.23</span>
+                <span class="version-tag">v0.1.24</span>
             </div>
         </div>
 

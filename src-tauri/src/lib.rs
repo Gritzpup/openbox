@@ -20,6 +20,20 @@ fn greet(name: &str) -> String {
 }
 
 #[tauri::command]
+async fn report_version(version: String, nas_path: Option<String>) {
+    if let Some(path) = nas_path {
+        let version_file = std::path::PathBuf::from(path).join("active_version.json");
+        let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+        let data = serde_json::json!({
+            "version": version,
+            "last_seen": timestamp,
+            "os": std::env::consts::OS
+        });
+        let _ = fs::write(version_file, serde_json::to_string_pretty(&data).unwrap_or_default());
+    }
+}
+
+#[tauri::command]
 async fn log_to_nas(message: String, nas_path: Option<String>) {
     if let Some(path) = nas_path {
         let log_file = std::path::PathBuf::from(path).join("turbolaunch_telemetry.log");
@@ -122,7 +136,7 @@ pub fn run() {
             settings::link_platform_emulator, settings::get_platform_emulators,
             settings::set_data_root, settings::install_retroarch, settings::install_emulator, settings::setup_emulator_environment,
             scraper::scrape_game_art, scraper::download_art,
-            log_to_nas
+            log_to_nas, report_version
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
