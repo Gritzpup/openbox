@@ -122,12 +122,17 @@ pub fn run() {
                             app_dir.clone()
                         };
         
-                        // 2. Init DB in the selected directory
-                        match db::init_db(&db_dir).await {
-                            Ok(pool) => {
-                                handle.manage(pool);
-                                let pool_state = handle.state::<sqlx::SqlitePool>();
-                                match library::Library::load_from_db(&pool_state).await {
+                                        // 2. Init DB in the selected directory
+                                        match db::init_db(&db_dir).await {
+                                            Ok(pool) => {
+                                                handle.manage(pool);
+                                                
+                                                // Auto-scaffold folders if data_root is set
+                                                if config.data_root.is_some() {
+                                                    let _ = settings::setup_emulator_environment(handle.clone(), db_dir.to_string_lossy().to_string()).await;
+                                                }
+                        
+                                                let pool_state = handle.state::<sqlx::SqlitePool>();                                match library::Library::load_from_db(&pool_state).await {
                                     Ok(lib) => {
                                         let state = handle.state::<tokio::sync::Mutex<library::Library>>();
                                         let mut library_state = state.lock().await;
