@@ -45,6 +45,11 @@ pub async fn init_db(db_dir: &Path) -> Result<SqlitePool, sqlx::Error> {
     .execute(&pool)
     .await?;
 
+    // Migration: Add category column if it doesn't exist
+    let _ = sqlx::query("ALTER TABLE platforms ADD COLUMN category TEXT DEFAULT 'Consoles';")
+        .execute(&pool)
+        .await;
+
     sqlx::query(
         "
         CREATE TABLE IF NOT EXISTS games (
