@@ -185,6 +185,51 @@ pub async fn add_game(
     Ok(())
 }
 
+use std::process::Command;
+use crate::settings;
+
+#[tauri::command]
+pub async fn launch_game(
+    app_handle: tauri::AppHandle,
+    game_id: String,
+) -> Result<(), String> {
+    let pool = app_handle.state::<SqlitePool>();
+    
+    // 1. Get Game
+    let game: Game = sqlx::query_as("SELECT * FROM games WHERE id = ?")
+        .bind(&game_id)
+        .fetch_one(&*pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    // 2. Get Platform's default emulator
+    let emulator: Option<settings::Emulator> = sqlx::query_as(
+        "SELECT e.* FROM emulators e JOIN platform_emulators pe ON e.id = pe.emulator_id WHERE pe.platform_id = ? AND pe.is_default = 1"
+    )
+    .bind(&game.platform_id)
+    .fetch_optional(&*pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    if let Some(emu) = emulator {
+        let mut cmd = Command::new(&emu.executable_path);
+        
+        if let Some(args) = emu.default_cmdline {
+            for arg in args.split_whitespace() {
+                cmd.arg(arg);
+            }
+        }
+        
+        cmd.arg(&game.file_path);
+        
+        println!("Launching game: {} with {}", game.title, emu.name);
+        cmd.spawn().map_err(|e| format!("Failed to start emulator: {}", e))?;
+        Ok(())
+    } else {
+        Err(format!("No default emulator set for platform {}", game.platform_id))
+    }
+}
+
 #[tauri::command] // Added tauri::command
 pub async fn get_game_images(app_handle: tauri::AppHandle, game_id: String) -> Result<Vec<Image>, String> {
     let library_mutex_state = app_handle.state::<tokio::sync::Mutex<Library>>();

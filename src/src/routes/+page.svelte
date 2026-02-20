@@ -153,26 +153,36 @@
             addLog("Checking for updates...");
             const update = await check();
             if (update) {
-                addLog(`Update v${update.version} found!`);
+                addLog(`Update v${update.version} found! Installing silently...`);
                 isUpdating = true;
-                updateStatus = `Updating to v${update.version}...`;
+                updateStatus = `Refreshing to v${update.version}...`;
                 
                 await update.downloadAndInstall((progress) => {
                     if (progress.event === 'Progress') {
                         const percent = Math.round((progress.data.chunkLength / progress.data.contentLength) * 100);
-                        updateStatus = `Downloading v${update.version}... ${percent}%`;
+                        updateStatus = `Refreshing... ${percent}%`;
                     }
                 });
                 
-                updateStatus = "Installing & Relaunching...";
-                addLog("Update installed. Relaunching.");
+                updateStatus = "Reloading TurboLaunch...";
+                addLog("Update installed. Restarting.");
                 setTimeout(async () => {
                     await relaunch();
-                }, 1500);
+                }, 1000);
             }
         } catch (e) {
             addLog("Update check failed: " + e);
             isUpdating = false;
+        }
+    }
+
+    async function playGame(gameId) {
+        try {
+            addLog(`Attempting to launch game ${gameId}...`);
+            await invoke("launch_game", { gameId });
+        } catch (e) {
+            addLog("Launch failed: " + e);
+            alert("Launch failed: " + e);
         }
     }
 
@@ -256,7 +266,7 @@
             </button>
             <div class="title-wrap">
                 <h2>TurboLaunch</h2>
-                <span class="version-tag">v0.1.11</span>
+                <span class="version-tag">v0.1.12</span>
             </div>
         </div>
 
@@ -296,7 +306,7 @@
                 <div class="update-card">
                     <div class="spinner"></div>
                     <h2>{updateStatus}</h2>
-                    <p>TurboLaunch is installing the latest version. Please wait...</p>
+                    <p>Refreshing TurboLaunch binary...</p>
                 </div>
             </div>
         {/if}
@@ -308,7 +318,6 @@
                         <h2>Import Wizard</h2>
                         <button class="btn-close" onclick={() => wizardOpen = false} aria-label="Close">&times;</button>
                     </header>
-                    <!-- ... wizard content same as before ... -->
                     <div class="step-content">
                         <p>Follow the steps to import your games.</p>
                         <button class="btn-primary" onclick={() => wizardOpen = false}>Close Wizard</button>
@@ -326,13 +335,15 @@
                             <span class="count">{games.length} games</span>
                             {#if platformEmulators.length > 0}
                                 <span class="emu-tag">using {platformEmulators[0].name}</span>
+                            {:else}
+                                <span class="emu-tag warning">No emulator set!</span>
                             {/if}
                         </div>
                     </div>
                 </header>
                 <div class="game-grid">
                     {#each games as game}
-                        <button class="game-card">
+                        <button class="game-card" ondblclick={() => playGame(game.id)}>
                             <div class="thumbnail">
                                 {#if thumbnails[game.id]}
                                     <img src={thumbnails[game.id]} alt={game.title} />
@@ -362,7 +373,7 @@
                     <input bind:value={newEmulator.name} placeholder="Display Name (e.g. Nestopia)" />
                     <div class="path-picker">
                         <input bind:value={newEmulator.executable_path} placeholder="Executable Path" readonly />
-                        <button onclick={async () => { 
+                        <button class="btn-small" onclick={async () => { 
                             const s = await open({ multiple: false });
                             if(s) newEmulator.executable_path = s;
                         }}>Browse</button>
@@ -373,16 +384,18 @@
                 <div class="emulator-list">
                     <h3>Installed Emulators</h3>
                     <table>
-                        {#each emulators as emu}
-                            <tr>
-                                <td><strong>{emu.name}</strong></td>
-                                <td>{emu.executable_path}</td>
-                                <td>
-                                    <button class="btn-small" onclick={() => linkEmulator(emu.id)}>Set as Default</button>
-                                    <button class="btn-small btn-danger" onclick={() => invoke("delete_emulator", { id: emu.id }).then(loadEmulators)}>Delete</button>
-                                </td>
-                            </tr>
-                        {/each}
+                        <tbody>
+                            {#each emulators as emu}
+                                <tr>
+                                    <td><strong>{emu.name}</strong></td>
+                                    <td>{emu.executable_path}</td>
+                                    <td>
+                                        <button class="btn-small" onclick={() => linkEmulator(emu.id)}>Set Default for {selectedPlatform?.name || 'Current'}</button>
+                                        <button class="btn-small btn-danger" onclick={() => invoke("delete_emulator", { id: emu.id }).then(loadEmulators)}>Delete</button>
+                                    </td>
+                                </tr>
+                            {/each}
+                        </tbody>
                     </table>
                 </div>
             </div>
@@ -615,6 +628,7 @@
 
     .count { color: #555; font-size: 0.9rem; }
     .emu-tag { background: #333; color: #aaa; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; }
+    .emu-tag.warning { background: #991b1b; color: white; }
 
     .game-grid {
         display: grid;
@@ -710,6 +724,7 @@
     }
 
     .btn-primary { background: #3b82f6; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    .btn-save { background: #10b981; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; margin-top: 10px; }
     .btn-small { background: #333; color: #ccc; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
     .btn-danger { background: #991b1b; color: white; }
 
@@ -732,4 +747,7 @@
         display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; opacity: 0.5;
     }
     .welcome-screen .icon { font-size: 5rem; margin-bottom: 20px; }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    td { padding: 12px; border-bottom: 1px solid #282828; }
 </style>
