@@ -27,13 +27,20 @@ jobs:
       - name: Rust setup
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
       - name: Node.js setup
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
 
       - name: Install frontend dependencies
-        run: npm install
+        run: npm ci
 
       - name: Build Svelte frontend
         run: npm run build

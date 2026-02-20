@@ -83,7 +83,7 @@
         "Arcade", "MAME", "SNK Neo Geo AES", "Atari 2600", "Atari 5200", "Atari 7800", "PC"
     ];
 
-    const CURRENT_VERSION = "v0.1.74";
+    const CURRENT_VERSION = "v0.1.75";
 
     function addLog(message: string) {
         const timestamp = new Date().toLocaleTimeString();
