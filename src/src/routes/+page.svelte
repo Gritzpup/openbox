@@ -38,7 +38,7 @@
     let wizardImportResults = $state([]);
     let installingStatus = $state("");
 
-    const CURRENT_VERSION = "v0.1.29";
+    const CURRENT_VERSION = "v0.1.30";
 
     function addLog(message: string) {
         const timestamp = new Date().toLocaleTimeString();
@@ -180,21 +180,23 @@
     async function checkForUpdates() {
         if (isUpdating || isChecking) return;
         isChecking = true;
+        updateStatus = "Checking...";
         const checkStartTime = Date.now();
+        
         try {
             if (config.data_root) {
                 invoke("report_version", { version: CURRENT_VERSION, nasPath: config.data_root });
             }
+            
             const update = await check();
             lastChecked = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
             
-            // Artificial delay to make the spinner visible for at least 1 second
             const elapsed = Date.now() - checkStartTime;
             if (elapsed < 1000) await new Promise(r => setTimeout(r, 1000 - elapsed));
 
             if (update) {
                 isUpdating = true;
-                addLog(`Update v${update.version} found. Downloading...`);
+                addLog(`Update v${update.version} found!`);
                 
                 try {
                     await update.downloadAndInstall((progress) => {
@@ -205,20 +207,19 @@
                     });
                     
                     updateStatus = "Restarting...";
-                    addLog("Update installation complete. Relaunching.");
-                    setTimeout(async () => { await relaunch(); }, 500);
-                } catch (installError) {
-                    addLog(`Update installation failed: ${installError}`);
+                    addLog("Update ready. Relaunching.");
+                    setTimeout(async () => { await relaunch(); }, 300);
+                } catch (err) {
+                    addLog("Install failed: " + err);
                     isUpdating = false;
                     updateStatus = "";
                 }
+            } else {
+                updateStatus = "";
             }
         } catch (e) {
-            if (!e?.toString().includes("404")) {
-                addLog("Update check error: " + e);
-            }
-            isUpdating = false;
             updateStatus = "";
+            if (!e?.toString().includes("404")) addLog("Check failed: " + e);
         } finally {
             isChecking = false;
         }
@@ -236,7 +237,6 @@
         wizardStep = 4;
         loading = true;
         try {
-            // 1. Scaffold directories
             if (config.data_root) {
                 await invoke("scaffold_platform_directories", { 
                     masterPath: config.data_root, 
@@ -259,7 +259,6 @@
                     mediaRoot: null 
                 });
                 
-                // Trigger Background Downloads
                 for (const title of res) {
                     try {
                         const scraped = await invoke("scrape_game_art", { platform: wizardPlatform, title });
@@ -281,7 +280,6 @@
                         addLog(`Download failed for ${title}: ${scrapeErr}`);
                     }
                 }
-                
                 results.push(...res);
             }
             wizardImportResults = results;

@@ -22,13 +22,26 @@ fn greet(name: &str) -> String {
 #[tauri::command]
 async fn report_version(version: String, nas_path: Option<String>) {
     if let Some(path) = nas_path {
-        let version_file = std::path::PathBuf::from(path).join("active_version.json");
+        let version_file = std::path::PathBuf::from(&path).join("active_version.json");
         let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
-        let data = serde_json::json!({
-            "version": version,
-            "last_seen": timestamp,
-            "os": std::env::consts::OS
-        });
+        
+        // Load existing to preserve 'last_updated'
+        let mut data = if version_file.exists() {
+            let existing = fs::read_to_string(&version_file).unwrap_or_default();
+            serde_json::from_str::<serde_json::Value>(&existing).unwrap_or(serde_json::json!({}))
+        } else {
+            serde_json::json!({})
+        };
+
+        let old_version = data["version"].as_str().unwrap_or("");
+        if old_version != "" && old_version != version {
+            data["last_updated"] = serde_json::Value::String(timestamp.clone());
+        }
+
+        data["version"] = serde_json::Value::String(version);
+        data["last_seen"] = serde_json::Value::String(timestamp);
+        data["os"] = serde_json::Value::String(std::env::consts::OS.to_string());
+        
         let _ = fs::write(version_file, serde_json::to_string_pretty(&data).unwrap_or_default());
     }
 }
