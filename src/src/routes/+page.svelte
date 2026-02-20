@@ -37,7 +37,7 @@
     let wizardImportResults = $state([]);
     let installingStatus = $state("");
 
-    const CURRENT_VERSION = "v0.1.26";
+    const CURRENT_VERSION = "v0.1.27";
 
     function addLog(message: string) {
         const timestamp = new Date().toLocaleTimeString();
@@ -179,10 +179,18 @@
     async function checkForUpdates() {
         if (isUpdating || isChecking) return;
         isChecking = true;
+        const checkStartTime = Date.now();
         try {
-            invoke("report_version", { version: CURRENT_VERSION, nasPath: config.data_root });
+            if (config.data_root) {
+                invoke("report_version", { version: CURRENT_VERSION, nasPath: config.data_root });
+            }
             const update = await check();
             lastChecked = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            
+            // Artificial delay to make the spinner visible for at least 1 second
+            const elapsed = Date.now() - checkStartTime;
+            if (elapsed < 1000) await new Promise(r => setTimeout(r, 1000 - elapsed));
+
             if (update) {
                 isUpdating = true;
                 addLog(`Update v${update.version} found. Downloading...`);
@@ -205,9 +213,7 @@
                 }
             }
         } catch (e) {
-            if (e?.toString().includes("404")) {
-                // Ignore
-            } else {
+            if (!e?.toString().includes("404")) {
                 addLog("Update check error: " + e);
             }
             isUpdating = false;
