@@ -36,6 +36,8 @@
     let wizardImportResults = $state([]);
     let installingStatus = $state("");
 
+    const CURRENT_VERSION = "v0.1.25";
+
     function addLog(message: string) {
         const timestamp = new Date().toLocaleTimeString();
         logs = [{ time: timestamp, message }, ...logs].slice(0, 100);
@@ -176,8 +178,9 @@
     async function checkForUpdates() {
         if (isUpdating) return;
         try {
-            invoke("report_version", { version: "v0.1.24", nasPath: config.data_root });
+            invoke("report_version", { version: CURRENT_VERSION, nasPath: config.data_root });
             const update = await check();
+            lastChecked = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
             if (update) {
                 isUpdating = true;
                 addLog(`Update v${update.version} found. Downloading...`);
@@ -201,7 +204,7 @@
             }
         } catch (e) {
             if (e?.toString().includes("404")) {
-                // Ignore 404s if release isn't fully propagated yet
+                // Ignore
             } else {
                 addLog("Update check error: " + e);
             }
@@ -279,18 +282,22 @@
         checkForUpdates();
     }
 
-        onMount(async () => {
-            await loadConfig();
-            if (config.data_root) {
-                await loadPlatforms();
-                invoke("report_version", { version: "v0.1.24", nasPath: config.data_root });
-            }
-            
-            checkForUpdates();
+    onMount(async () => {
+        await loadConfig();
+        if (config.data_root) {
+            await loadPlatforms();
+            invoke("report_version", { version: CURRENT_VERSION, nasPath: config.data_root });
+        }
+        
+        checkForUpdates();
         const updateInterval = setInterval(checkForUpdates, 30000);
+        
         const unlisten = await getCurrentWindow().onFileDropEvent((event) => {
-            if (event.payload.type === 'drop') handleFileDrop(event.payload.paths);
+            if (event.payload.type === 'drop') {
+                handleFileDrop(event.payload.paths);
+            }
         });
+
         return () => {
             unlisten();
             clearInterval(updateInterval);
@@ -308,7 +315,7 @@
             </button>
             <div class="title-wrap">
                 <h2>TurboLaunch</h2>
-                <span class="version-tag">v0.1.24</span>
+                <span class="version-tag">{CURRENT_VERSION}</span>
             </div>
         </div>
 
@@ -439,25 +446,25 @@
                         <span class="emu-tag">Default: {platformEmulators[0].name}</span>
                     {/if}
                 </header>
-                                <div class="game-grid">
-                                    {#each games as game}
-                                        <div class="game-card">
-                                            <div class="thumbnail" ondblclick={() => playGame(game.id)}>
-                                                {#if thumbnails[game.id]}
-                                                    <img src={thumbnails[game.id]} alt={game.title} />
-                                                {:else}
-                                                    <div class="placeholder"><span>{game.title}</span></div>
-                                                {/if}
-                                                <div class="card-overlay">
-                                                    <button class="btn-play-icon" onclick={() => playGame(game.id)}>▶</button>
-                                                </div>
-                                            </div>
-                                            <div class="info">
-                                                <h3>{game.title}</h3>
-                                            </div>
-                                        </div>
-                                    {/each}
+                <div class="game-grid">
+                    {#each games as game}
+                        <div class="game-card">
+                            <div class="thumbnail" ondblclick={() => playGame(game.id)}>
+                                {#if thumbnails[game.id]}
+                                    <img src={thumbnails[game.id]} alt={game.title} />
+                                {:else}
+                                    <div class="placeholder"><span>{game.title}</span></div>
+                                {/if}
+                                <div class="card-overlay">
+                                    <button class="btn-play-icon" onclick={() => playGame(game.id)}>▶</button>
                                 </div>
+                            </div>
+                            <div class="info">
+                                <h3>{game.title}</h3>
+                            </div>
+                        </div>
+                    {/each}
+                </div>
             {:else}
                 <div class="welcome-screen"><div class="icon">📦</div><h1>Drag & Drop ROMs Here</h1></div>
             {/if}
@@ -514,8 +521,11 @@
     .menu-dropdown button { width: 100%; padding: 12px 15px; background: none; border: none; color: #ddd; text-align: left; cursor: pointer; font-size: 0.9rem; }
     .menu-dropdown button:hover { background: #383838; color: #fff; }
     .sidebar-footer { margin-top: auto; padding-top: 10px; border-top: 1px solid #222; }
-    .update-status-minimal { display: flex; align-items: center; gap: 10px; color: #3b82f6; font-size: 0.7rem; }
-    .mini-spinner { width: 12px; height: 12px; border: 2px solid rgba(59, 130, 246, 0.2); border-left-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; }
+    .update-status-minimal { display: flex; align-items: center; gap: 10px; color: #555; font-size: 0.65rem; }
+    .mini-spinner { width: 10px; height: 10px; border: 2px solid rgba(255, 255, 255, 0.05); border-left-color: #333; border-radius: 50%; }
+    .mini-spinner.rotating { border-left-color: #3b82f6; animation: spin 1s linear infinite; }
+    .update-info { display: flex; flex-direction: column; }
+    .status-msg { color: #3b82f6; font-weight: bold; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .platform-list { flex: 1; overflow-y: auto; }
     .platform-list h3 { font-size: 0.75rem; text-transform: uppercase; color: #555; margin-bottom: 10px; }
@@ -527,6 +537,9 @@
     .game-card { background: #181818; border-radius: 8px; overflow: hidden; border: 1px solid #282828; text-align: left; padding: 0; cursor: pointer; color: inherit; }
     .thumbnail { aspect-ratio: 3/4; background: #222; display: flex; align-items: center; justify-content: center; text-align: center; position: relative; }
     .thumbnail img { width: 100%; height: 100%; object-fit: cover; }
+    .card-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; }
+    .game-card:hover .card-overlay { opacity: 1; }
+    .btn-play-icon { width: 50px; height: 50px; border-radius: 50%; background: #3b82f6; color: white; border: none; font-size: 1.5rem; cursor: pointer; display: flex; align-items: center; justify-content: center; padding-left: 5px; }
     .info { padding: 12px; }
     .info h3 { margin: 0; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .update-overlay, .wizard-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 2000; backdrop-filter: blur(5px); }
