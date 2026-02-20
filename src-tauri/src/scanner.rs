@@ -171,6 +171,15 @@ pub async fn batch_import(
         crate::config::load_config(&app_dir).await.unwrap()
     });
 
+    // 1. Ensure platform exists in DB (Foreign Key requirement)
+    sqlx::query("INSERT OR IGNORE INTO platforms (id, name, folder_path) VALUES (?, ?, ?)")
+        .bind(&platform_id)
+        .bind(&platform_id)
+        .bind("")
+        .execute(&*pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
     let master_games_dir = if let Some(ref root) = config_state.data_root {
         let p = PathBuf::from(root).join("Games").join(&platform_id);
         if !p.exists() {

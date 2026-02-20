@@ -13,9 +13,21 @@ pub async fn scaffold_platform_directories(
     master_path: String,
     platform_id: String,
 ) -> Result<(), String> {
-    let base_image_dir = PathBuf::from(&master_path).join("Images").join(&platform_id);
-    let base_video_dir = PathBuf::from(&master_path).join("Videos").join(&platform_id);
+    let pool = app_handle.state::<SqlitePool>();
 
+    // 1. Ensure platform record exists in DB
+    sqlx::query(
+        "INSERT OR IGNORE INTO platforms (id, name, folder_path) VALUES (?, ?, ?)"
+    )
+    .bind(&platform_id)
+    .bind(&platform_id)
+    .bind("")
+    .execute(&*pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    // 2. Create Image Folders
+    let base_image_dir = PathBuf::from(&master_path).join("Images").join(&platform_id);
     let image_subfolders = [
         "Box - 3D", "Box - Front", "Box - Back", "Box - Full", 
         "Box - Front Reconstructed", "Box - Back Reconstructed",
@@ -35,8 +47,17 @@ pub async fn scaffold_platform_directories(
         }
     }
 
-    if !base_video_dir.exists() {
-        fs::create_dir_all(&base_video_dir).map_err(|e| e.to_string())?;
+    // 3. Create Video Folders
+    let base_video_dir = PathBuf::from(&master_path).join("Videos").join(&platform_id);
+    let video_subfolders = [
+        "Video - Big Box Cinematic", "Video - Gameplay"
+    ];
+
+    for folder in video_subfolders {
+        let path = base_video_dir.join(folder);
+        if !path.exists() {
+            fs::create_dir_all(&path).map_err(|e| e.to_string())?;
+        }
     }
 
     Ok(())
