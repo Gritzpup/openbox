@@ -85,9 +85,30 @@ async fn get_build_status() -> Result<serde_json::Value, String> {
     
     if let Some(runs) = data["workflow_runs"].as_array() {
         if let Some(last_run) = runs.first() {
+            let run_id = last_run["id"].as_i64().unwrap_or(0);
+            
+            // Check jobs for this specific run to see if any have failed yet
+            let jobs_url = format!("https://api.github.com/repos/Gritzpup/openbox/actions/runs/{}/jobs", run_id);
+            let jobs_resp = client.get(&jobs_url)
+                .header("User-Agent", "TurboLaunch-App")
+                .send()
+                .await
+                .map_err(|e| e.to_string())?;
+            
+            let jobs_data: serde_json::Value = jobs_resp.json().await.map_err(|e| e.to_string())?;
+            let mut any_job_failed = false;
+            if let Some(jobs) = jobs_data["jobs"].as_array() {
+                for job in jobs {
+                    if job["conclusion"] == "failure" {
+                        any_job_failed = true;
+                        break;
+                    }
+                }
+            }
+
             return Ok(serde_json::json!({
                 "status": last_run["status"],
-                "conclusion": last_run["conclusion"],
+                "conclusion": if any_job_failed { "failure" } else { last_run["conclusion"].as_str().unwrap_or("") },
                 "version": last_run["head_branch"]
             }));
         }

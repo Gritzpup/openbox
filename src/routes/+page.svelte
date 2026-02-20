@@ -83,7 +83,7 @@
         "Arcade", "MAME", "SNK Neo Geo AES", "Atari 2600", "Atari 5200", "Atari 7800", "PC"
     ];
 
-    const CURRENT_VERSION = "v0.1.75";
+    const CURRENT_VERSION = "v0.1.76";
 
     function addLog(message: string) {
         const timestamp = new Date().toLocaleTimeString();
@@ -558,11 +558,11 @@
             {/if}
             <div class="update-status-minimal">
                 <button class="mini-spinner-btn" onclick={checkForUpdates} 
-                    title={githubBuildStatus.status === 'in_progress' ? 'GitHub Build In Progress...' : 
+                    title={githubBuildStatus.status === 'in_progress' || githubBuildStatus.status === 'queued' ? 'GitHub Build In Progress...' : 
                            githubBuildStatus.conclusion === 'failure' ? 'Last Build Failed' : 'Check for updates now'}>
                     <div class="mini-spinner" 
-                        class:rotating={isUpdating || isChecking || githubBuildStatus.status === 'in_progress'} 
-                        class:building={githubBuildStatus.status === 'in_progress'}
+                        class:rotating={isUpdating || isChecking || githubBuildStatus.status === 'in_progress' || githubBuildStatus.status === 'queued'} 
+                        class:building={githubBuildStatus.status === 'in_progress' || githubBuildStatus.status === 'queued'}
                         class:failed={githubBuildStatus.conclusion === 'failure'}>
                     </div>
                 </button>
