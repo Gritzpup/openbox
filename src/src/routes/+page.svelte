@@ -16,6 +16,7 @@
     let updateStatus = $state("");
     let lastChecked = $state("");
     let isUpdating = $state(false);
+    let isChecking = $state(false);
     let logs = $state([]);
 
     let emulators = $state([]);
@@ -36,7 +37,7 @@
     let wizardImportResults = $state([]);
     let installingStatus = $state("");
 
-    const CURRENT_VERSION = "v0.1.25";
+    const CURRENT_VERSION = "v0.1.26";
 
     function addLog(message: string) {
         const timestamp = new Date().toLocaleTimeString();
@@ -176,7 +177,8 @@
     }
 
     async function checkForUpdates() {
-        if (isUpdating) return;
+        if (isUpdating || isChecking) return;
+        isChecking = true;
         try {
             invoke("report_version", { version: CURRENT_VERSION, nasPath: config.data_root });
             const update = await check();
@@ -210,6 +212,8 @@
             }
             isUpdating = false;
             updateStatus = "";
+        } finally {
+            isChecking = false;
         }
     }
 
@@ -341,7 +345,7 @@
 
         <div class="sidebar-footer">
             <div class="update-status-minimal">
-                <div class="mini-spinner" class:rotating={isUpdating}></div>
+                <div class="mini-spinner" class:rotating={isUpdating || isChecking}></div>
                 <div class="update-info">
                     {#if updateStatus}
                         <span class="status-msg">{updateStatus}</span>
