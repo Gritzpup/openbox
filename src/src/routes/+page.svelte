@@ -269,6 +269,13 @@
         }
     }
 
+    async function resetUpdateState() {
+        isUpdating = false;
+        updateStatus = "";
+        addLog("Manual Update Reset triggered.");
+        checkForUpdates();
+    }
+
     onMount(async () => {
         await loadConfig();
         if (config.data_root) {
@@ -296,7 +303,7 @@
             </button>
             <div class="title-wrap">
                 <h2>TurboLaunch</h2>
-                <span class="version-tag">v0.1.20</span>
+                <span class="version-tag">v0.1.21</span>
             </div>
         </div>
 
@@ -468,7 +475,12 @@
                 </div>
             </div>
         {:else if currentView === 'debug'}
-            <div class="debug-view"><h1>Debug Logs</h1><div class="log-container">
+            <div class="debug-view">
+                <header class="debug-header">
+                    <h1>Debug Logs</h1>
+                    <button class="btn-small" onclick={resetUpdateState}>Reset Update Engine</button>
+                </header>
+                <div class="log-container">
                 {#each logs as log}<div class="log-entry"><span class="log-time">[{log.time}]</span><span class="log-msg">{log.message}</span></div>{/each}
             </div></div>
         {/if}

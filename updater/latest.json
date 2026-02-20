@@ -1,11 +1,11 @@
 {
-  "version": "0.1.20",
-  "notes": "BRIDGE Update: Fixes update path and enables NAS Emulator sync.",
-  "pub_date": "2026-02-20T03:41:52Z",
+  "version": "0.1.21",
+  "notes": "v0.1.21: Bridge fix for stuck updates and UI enhancements.",
+  "pub_date": "2026-02-20T03:45:34Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRNEUrTnlVNGlZQkVrVG9ROTlZT3hYSENuY3BmdlE2Vk1VSjQra3FjQjhOUjI2dHNkZmkwanVZSEIrZExlQU1yRi9Ta3pUcFI2cEJraHk4RElRWklnV2FJK2NaTE9KWXdBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcxNTU4OTEyCWZpbGU6VHVyYm9MYXVuY2hfMC4xLjIwX3g2NC1zZXR1cC5leGUKdGJ3SENDcjNwcHR3SXROMDJuaFY5aHZ1aHU5Z2JzWEIrelhYM25kb3Jzek1SYjlVRFdOYkZLdW5uV1Y3NXZVeDVMcVJNdUpkWFRHY1lNbWNrcW9jQ0E9PQo=",
-      "url": "https://github.com/Gritzpup/openbox/releases/download/v0.1.20/TurboLaunch_0.1.20_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRNEUrTnlVNGlZQklUQnBYbEo5STcxS2RldWJrMUc2aXVxb1lLWlA0bUg1L2gzUU0vL2liS0p1SG9xSFgrUlo4TGQ1aGdza3JXbkpQeGt4UzlRbFVrUHRZalU2WmtHV0E0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcxNTU5MTM0CWZpbGU6VHVyYm9MYXVuY2hfMC4xLjIxX3g2NC1zZXR1cC5leGUKYzNpQ3hja1dCdFdHTVV6RU5LQnY1WUpjb25vY0pyNmtHZ1YrU1ZLY3o0TlFieHV1WWR2cnJBSzlCSVB6d0xKeUJSN3grZ1Zaelo3bmxrUnlmQ29zQUE9PQo=",
+      "url": "https://github.com/Gritzpup/openbox/releases/download/v0.1.21/TurboLaunch_0.1.21_x64-setup.exe"
     }
   }
 }
