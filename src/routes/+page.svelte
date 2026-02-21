@@ -68,8 +68,153 @@
         screenshot_gameover: false,
         screenshot_scores: false
     });
-    let wizardImportResults = $state([]);
-    let installingStatus = $state("");
+    let selectedGames = $state([]);
+    let selectedGame = $derived(games.find(g => g.id === selectedGames[selectedGames.length - 1]));
+    let favoriteGames = $derived(games.filter(g => g.favorite));
+    let otherGames = $derived(games.filter(g => !g.favorite));
+
+    let selectedGameMedia = $state({ screenshots: [], box3d: null, logo: null, video: null });
+
+    async function toggleFavorite(gameId) {
+        const game = games.find(g => g.id === gameId);
+        if (!game) return;
+        const newState = !game.favorite;
+        try {
+            await invoke("set_favorite", { gameId, favorite: newState });
+            game.favorite = newState;
+            addLog(`Game ${game.title} ${newState ? 'added to' : 'removed from'} favorites.`);
+        } catch (e) { addLog("Failed to toggle favorite: " + e); }
+    }
+
+    async function setRating(gameId, rating) {
+        try {
+            await invoke("set_star_rating", { gameId, rating });
+            const game = games.find(g => g.id === gameId);
+            if (game) game.star_rating = rating;
+        } catch (e) { addLog("Failed to set rating: " + e); }
+    }
+
+    async function loadSelectedGameMedia(game) {
+        selectedGameMedia = { screenshots: [], box3d: null, logo: null, video: null };
+        const platform = platforms.find(p => p.id === game.platform_id);
+        const mediaRoot = platform?.media_root || config.global_media_root || config.data_root || "";
+        if (!mediaRoot) return;
+
+        try {
+            const images = await invoke("get_game_images", { gameId: game.id });
+            selectedGameMedia.screenshots = images.filter(img => img.image_type.includes("Screenshot")).map(img => `game-media://localhost${img.cache_path || img.source_path}`);
+            
+            const box3d = images.find(img => img.image_type === "Box - 3D");
+            if (box3d) selectedGameMedia.box3d = `game-media://localhost${box3d.cache_path || box3d.source_path}`;
+            
+            const logo = images.find(img => img.image_type === "Clear Logo");
+            if (logo) selectedGameMedia.logo = `game-media://localhost${logo.cache_path || logo.source_path}`;
+        } catch (e) { console.error("Failed to load game media", e); }
+    }
+
+    $effect(() => {
+        if (selectedGame) {
+            loadSelectedGameMedia(selectedGame);
+        }
+    });
+
+    let toolsMenuOpen = $state(false);
+    let downloadMenuOpen = $state(false);
+    let viewMenuOpen = $state(false);
+    let imageGroupMenuOpen = $state(false);
+    let activeImageGroup = $state("3D Boxes");
+
+    const IMAGE_GROUPS = {
+        "Backgrounds": ["Fanart - Background"],
+        "Boxes": ["Box - Front", "Box - 3D"],
+        "3D Boxes": ["Box - 3D", "Box - Front"],
+        "Cards": ["Cart - Front", "Cart - 3D"],
+        "3D Cards": ["Cart - 3D", "Cart - Front"],
+        "Clear Logos": ["Clear Logo"],
+        "Marquees": ["Arcade - Marquee", "Banner"],
+        "Screenshots": ["Screenshot - Gameplay", "Screenshot - Game Title"],
+        "Steam Banners": ["Banner"]
+    };
+
+    function setImageGroup(group) {
+        activeImageGroup = group;
+        localStorage.setItem("activeImageGroup", group);
+        // Clear thumbnails to force reload
+        thumbnails = {};
+        games.forEach(g => loadThumbnail(g));
+    }
+
+    let multiUpdateWizardOpen = $state(false);
+    let multiUpdateStep = $state(1);
+    let multiUpdateReplace = $state(false); // Default: do not replace
+
+    function toggleSelection(gameId, event) {
+        if (event.ctrlKey || event.shiftKey) {
+            if (selectedGames.includes(gameId)) {
+                selectedGames = selectedGames.filter(id => id !== gameId);
+            } else {
+                selectedGames = [...selectedGames, gameId];
+            }
+        } else {
+            selectedGames = [gameId];
+        }
+    }
+
+    let clearSelection = () => { selectedGames = []; };
+
+    let contextMenu = $state({ open: false, x: 0, y: 0, gameId: null });
+    let contextMenuVersions = $state([]);
+    let playlists = $state([]);
+
+    async function openContextMenu(e, gameId) {
+        e.preventDefault();
+        e.stopPropagation();
+        contextMenu = { open: true, x: e.clientX, y: e.clientY, gameId };
+        
+        // Fetch versions
+        const game = games.find(g => g.id === gameId);
+        if (game) {
+            try {
+                contextMenuVersions = await invoke("get_game_versions", { title: game.title });
+            } catch (err) { contextMenuVersions = []; }
+        }
+    }
+
+    function closeContextMenu() {
+        contextMenu.open = false;
+    }
+
+    async function loadPlaylists() {
+        // Placeholder until backend is ready
+        playlists = ["Favorites", "Action", "RPG"];
+    }
+
+    function saveWizardSelections() {
+        const selections = {
+            category: wizardCategory,
+            platform: wizardPlatform,
+            emulator: wizardEmulator,
+            fileAction: wizardFileAction,
+            mediaOptions: $state.snapshot(wizardMediaOptions)
+        };
+        localStorage.setItem("wizardSelections", JSON.stringify(selections));
+    }
+
+    function loadWizardSelections() {
+        const saved = localStorage.getItem("wizardSelections");
+        if (saved) {
+            try {
+                const s = JSON.parse(saved);
+                wizardCategory = s.category || "Consoles";
+                wizardPlatform = s.platform || "";
+                wizardEmulator = s.emulator || null;
+                wizardFileAction = s.fileAction || "link";
+                if (s.mediaOptions) {
+                    Object.assign(wizardMediaOptions, s.mediaOptions);
+                }
+            } catch (e) { console.error("Failed to load wizard selections", e); }
+        }
+    }
     let githubBuildStatus = $state({ status: "", conclusion: "", version: "" });
 
     const STANDARD_CATEGORIES = ["Consoles", "Handhelds", "Arcade", "Computers"];
@@ -83,7 +228,23 @@
         "Arcade", "MAME", "SNK Neo Geo AES", "Atari 2600", "Atari 5200", "Atari 7800", "PC"
     ];
 
-    const CURRENT_VERSION = "v0.1.78";
+    const CURRENT_VERSION = "v0.1.124";
+
+    const INSTANCE_ID = Math.random().toString(36).substring(7);
+
+    async function pushLogToServer(message: string, level = "INFO") {
+        try {
+            fetch("http://192.168.1.51:3002/log", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    level,
+                    source: `JS-FRONTEND-${INSTANCE_ID}`,
+                    message
+                })
+            }).catch(() => {});
+        } catch (e) {}
+    }
 
     function addLog(message: string) {
         const timestamp = new Date().toLocaleTimeString();
@@ -92,6 +253,7 @@
         if (config.data_root) {
             invoke("log_to_nas", { message, nas_path: config.data_root });
         }
+        pushLogToServer(message);
     }
 
     async function loadConfig() {
@@ -201,7 +363,7 @@
         const mediaRoot = platform?.media_root || config.global_media_root || config.data_root || "";
         if (!mediaRoot) return;
 
-        const types = ["Box - 3D", "Box - Front"];
+        const types = IMAGE_GROUPS[activeImageGroup] || ["Box - 3D", "Box - Front"];
         const extensions = ["png", "jpg", "jpeg"];
         const cacheDir = `${mediaRoot}/Cache/Thumbnails`;
 
@@ -235,12 +397,14 @@
         await checkGithubBuildStatus();
         
         try {
-            addLog("Update engine: Starting check...");
+            addLog("Update engine: Checking for updates...");
             if (config.data_root) {
                 invoke("report_version", { version: CURRENT_VERSION, nas_path: config.data_root, error: null });
             }
             
-            const update = await check();
+            // MANUAL UPDATE CHECK
+            const update = await invoke("manual_check_update", { currentVersion: CURRENT_VERSION });
+            
             lastChecked = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
             
             if (update) {
@@ -250,15 +414,16 @@
                 updateStatus = `Downloading v${update.version}...`;
                 
                 try {
-                    await update.downloadAndInstall((progress) => {
-                        if (progress.event === 'Progress') {
-                            const percent = progress.data.contentLength ? Math.round((progress.data.chunkLength / progress.data.contentLength) * 100) : 0;
-                            updateStatus = `Downloading... ${percent}%`;
-                        }
-                    });
+                    // Start manual install process
+                    // Note: 'update.url' comes from our manual check struct
+                    // We don't have progress events here easily unless we implement them, so just show indeterminate
+                    addLog(`Downloading update from: ${update.url}`);
                     
-                    updateStatus = "Restarting...";
-                    setTimeout(async () => { await relaunch(); }, 300);
+                    // This call will download AND execute installer AND exit app
+                    await invoke("manual_install_update", { url: update.url });
+                    
+                    // If we are here, app hasn't exited yet (downloading)
+                    updateStatus = "Installing...";
                 } catch (err) {
                     const errMsg = `Install failed: ${err}`;
                     addLog(errMsg);
@@ -293,16 +458,88 @@
         importWizardOpen = true;
         wizardStep = 1;
         await loadEmulators();
-        // Try to auto-detect platform from files? For now just reset
-        wizardPlatform = "";
+        // Removed wizardPlatform reset to allow persistence
+    }
+
+    async function runMultiUpdate() {
+        loading = true;
+        multiUpdateStep = 2; // Show progress
+        wizardProgress = "Starting batch update...";
+        
+        const gamesToUpdate = games.filter(g => selectedGames.includes(g.id));
+        addLog(`Batch Update: Starting for ${gamesToUpdate.length} games (Replace: ${multiUpdateReplace})`);
+
+        try {
+            for (let i = 0; i < gamesToUpdate.length; i++) {
+                const game = gamesToUpdate[i];
+                const platform = platforms.find(p => p.id === game.platform_id);
+                wizardProgress = `Updating Game ${i + 1}/${gamesToUpdate.length}`;
+                wizardDetail = `Scraping: ${game.title}`;
+
+                try {
+                    const scrapedData = await invoke("scrape_game_art", { 
+                        platform: platform?.name || "", 
+                        title: game.title 
+                    });
+                    const scraped = scrapedData.art;
+
+                    // Save Metadata to DB
+                    await invoke("update_game_metadata", { gameId: game.id, data: scrapedData });
+                    
+                    const masterRoot = config.data_root || config.global_media_root;
+                    if (!masterRoot) throw new Error("No data root or global media root configured.");
+
+                    // Map of art types to download
+                    const mediaMap = [
+                        { opt: 'box_3d', url: scraped.box_3d_url, folder: 'Images', sub: 'Box - 3D', ext: 'png' },
+                        { opt: 'box_front', url: scraped.box_front_url, folder: 'Images', sub: 'Box - Front', ext: 'png' },
+                        { opt: 'box_back', url: scraped.box_back_url, folder: 'Images', sub: 'Box - Back', ext: 'png' },
+                        { opt: 'clear_logo', url: scraped.clear_logo_url, folder: 'Images', sub: 'Clear Logo', ext: 'png' },
+                        { opt: 'fanart_background', url: scraped.fanart_background_url, folder: 'Images', sub: 'Fanart - Background', ext: 'png' },
+                    ];
+
+                    for (const m of mediaMap) {
+                        if (m.url) {
+                            const dest = `${masterRoot}/${m.folder}/${platform?.id}/${m.sub}/${game.title}-01.${m.ext}`;
+                            
+                            // Skip if exists AND replace is false
+                            const skip = !multiUpdateReplace && await invoke("file_exists", { path: dest });
+                            
+                            if (!skip) {
+                                wizardDetail = `Downloading ${m.sub} for ${game.title}...`;
+                                await invoke("download_art", { url: m.url, destinationPath: dest });
+                            }
+                        }
+                    }
+                } catch (err) {
+                    addLog(`Batch update error for ${game.title}: ${err}`);
+                }
+            }
+            
+            addLog("Batch update complete!");
+            multiUpdateStep = 3; // Finished
+        } catch (e) {
+            addLog("Batch update FAILED: " + e);
+            alert("Batch update failed: " + e);
+            multiUpdateWizardOpen = false;
+        } finally {
+            loading = false;
+            wizardProgress = "";
+            wizardDetail = "";
+        }
     }
 
     async function runWizardImport() {
         loading = true;
+        wizardProgress = "Initializing...";
+        wizardDetail = "Preparing directories...";
+        saveWizardSelections();
+        
         addLog(`Starting Import for platform: ${wizardPlatform} (${wizardFiles.length} files)`);
         try {
             // 1. Scaffold directories on NAS
             if (config.data_root) {
+                wizardDetail = "Scaffolding NAS directories...";
                 await invoke("scaffold_platform_directories", { 
                     masterPath: config.data_root, 
                     platformId: wizardPlatform,
@@ -312,6 +549,7 @@
 
             // 2. Link Emulator if selected
             if (wizardEmulator) {
+                wizardDetail = "Linking emulator...";
                 await invoke("link_platform_emulator", {
                     platformId: wizardPlatform,
                     emulatorId: wizardEmulator,
@@ -321,7 +559,11 @@
 
             // 3. Perform Batch Import with File Action
             const results = [];
-            for (const path of wizardFiles) {
+            for (let i = 0; i < wizardFiles.length; i++) {
+                const path = wizardFiles[i];
+                wizardProgress = `Processing Folder ${i + 1}/${wizardFiles.length}`;
+                wizardDetail = `Analyzing: ${path.split(/[\\\\/]/).pop()}`;
+                
                 const res = await invoke("batch_import", {
                     folderPath: path,
                     platformId: wizardPlatform,
@@ -331,10 +573,19 @@
                 });
                 
                 // 4. Detailed Media Scraping & Downloading
-                for (const title of res) {
+                for (let j = 0; j < res.length; j++) {
+                    const title = res[j];
+                    wizardProgress = `Processing Folder ${i + 1}/${wizardFiles.length}`;
+                    wizardDetail = `Scraping: ${title} (${j+1}/${res.length})`;
+                    
                     try {
-                        const scraped = await invoke("scrape_game_art", { platform: wizardPlatform, title });
+                        const scrapedData = await invoke("scrape_game_art", { platform: wizardPlatform, title });
+                        const scraped = scrapedData.art;
                         const masterRoot = config.data_root || config.global_media_root;
+
+                        // Save Metadata to DB
+                        const gameId = `${wizardPlatform}-${title}`.replace(/ /g, "-").toLowerCase();
+                        await invoke("update_game_metadata", { gameId, data: scrapedData });
                         
                         // Map Wizard Options to Scraped URLs and NAS Paths
                         const mediaMap = [
@@ -369,8 +620,9 @@
 
                         for (const m of mediaMap) {
                             if (wizardMediaOptions[m.opt] && m.url) {
+                                wizardDetail = `Downloading ${m.sub} for ${title}...`;
                                 const dest = `${masterRoot}/${m.folder}/${wizardPlatform}/${m.sub}/${title}-01.${m.ext}`;
-                                invoke("download_art", { url: m.url, destinationPath: dest });
+                                await invoke("download_art", { url: m.url, destinationPath: dest });
                             }
                         }
                     } catch (scrapeErr) {
@@ -387,6 +639,8 @@
             alert("Import failed: " + e);
         } finally {
             loading = false;
+            wizardProgress = "";
+            wizardDetail = "";
         }
     }
 
@@ -444,33 +698,83 @@
         }
     }
 
+    function closeAllMenus() {
+        menuOpen = false;
+        toolsMenuOpen = false;
+        downloadMenuOpen = false;
+        viewMenuOpen = false;
+        imageGroupMenuOpen = false;
+        platformMenuOpen = false;
+        closeContextMenu();
+    }
+
+    function handleClickOutside(e) {
+        const isMenuClick = e.target.closest('.menu-dropdown') || e.target.closest('.hamburger');
+        const isContextClick = e.target.closest('.context-menu');
+        const isPlatformMenuClick = e.target.closest('.platform-menu-wrap');
+
+        if (!isMenuClick) {
+            menuOpen = false;
+            toolsMenuOpen = false;
+            downloadMenuOpen = false;
+            viewMenuOpen = false;
+            imageGroupMenuOpen = false;
+        }
+        if (!isContextClick) {
+            contextMenu.open = false;
+        }
+        if (!isPlatformMenuClick) {
+            platformMenuOpen = false;
+        }
+    }
+
     onMount(() => {
         addLog("App mounting...");
+        window.addEventListener('click', handleClickOutside);
+        loadWizardSelections();
         
-        // Start updates immediately
-        checkForUpdates();
+        // Load active image group
+        const savedGroup = localStorage.getItem("activeImageGroup");
+        if (savedGroup && savedGroup in IMAGE_GROUPS) {
+            activeImageGroup = savedGroup;
+        }
+        
         checkGithubBuildStatus();
-        const updateInterval = setInterval(checkForUpdates, 30000);
         const buildStatusInterval = setInterval(checkGithubBuildStatus, 60000);
+
+        // Periodic check for updates every 30 seconds
+        const updateInterval = setInterval(checkForUpdates, 30000);
+        
+        // Initial check after 5 seconds
+        setTimeout(checkForUpdates, 5000);
 
         // Async background tasks
         (async () => {
             try {
                 addLog("Starting Drag & Drop listener...");
                 const unlisten = await getCurrentWindow().onDragDropEvent((event) => {
-                    console.log("DragDrop Event:", event);
-                    // Handle both Tauri 1.0 and 2.0 event structures just in case
+                    // console.log("DragDrop Event:", event);
                     const type = event.type || (event.payload && event.payload.type);
                     const paths = event.paths || (event.payload && event.payload.paths);
 
                     if (type === 'drop' || type === 'dragDrop') {
                         const pathCount = paths ? paths.length : 0;
-                        addLog(`File drop detected! Type: ${type}, Paths: ${pathCount}`);
+                        addLog(`[DRAG-DEBUG] Final Drop detected! Type: ${type}, Items: ${pathCount}`);
+                        if (paths) {
+                            paths.forEach((p, i) => addLog(`[DRAG-DEBUG] Drop Path ${i+1}: ${p}`));
+                        }
                         isDragging = false;
                         if (paths) handleFileDrop(paths);
-                    } else if (type === 'enter' || type === 'over' || type === 'dragEnter' || type === 'dragOver') {
+                    } else if (type === 'enter' || type === 'dragEnter') {
+                        addLog(`[DRAG-DEBUG] Item entered window area. Type: ${type}`);
                         isDragging = true;
+                    } else if (type === 'over' || type === 'dragOver') {
+                        // isDragging = true; // Avoid spamming log here
+                    } else if (type === 'leave' || type === 'dragLeave') {
+                        addLog(`[DRAG-DEBUG] Item left window area. Type: ${type}`);
+                        isDragging = false;
                     } else {
+                        addLog(`[DRAG-DEBUG] Other Drag event: ${type}`);
                         isDragging = false;
                     }
                 });
@@ -489,6 +793,7 @@
         })();
 
         return () => {
+            window.removeEventListener('click', handleClickOutside);
             clearInterval(updateInterval);
             clearInterval(buildStatusInterval);
         };
@@ -522,7 +827,62 @@
         {#if menuOpen}
             <div class="menu-dropdown">
                 <button onclick={() => { currentView = 'emulators'; menuOpen = false; loadEmulators(); }}>Emulator Settings</button>
-                <button onclick={() => { currentView = 'tools'; menuOpen = false; }}>Tools & Paths</button>
+                
+                <div class="menu-item-container">
+                    <button class="menu-sub-trigger" onclick={() => toolsMenuOpen = !toolsMenuOpen}>
+                        Tools <span class="arrow">{toolsMenuOpen ? '◀' : '▶'}</span>
+                    </button>
+                    {#if toolsMenuOpen}
+                        <div class="menu-submenu">
+                            <div class="menu-item-container">
+                                <button class="menu-sub-trigger" onclick={() => downloadMenuOpen = !downloadMenuOpen}>
+                                    Download <span class="arrow">{downloadMenuOpen ? '◀' : '▶'}</span>
+                                </button>
+                                {#if downloadMenuOpen}
+                                    <div class="menu-submenu side">
+                                        <button onclick={() => { 
+                                            if (selectedGames.length > 0) {
+                                                multiUpdateWizardOpen = true; 
+                                                multiUpdateStep = 1;
+                                                menuOpen = false; 
+                                            } else {
+                                                alert("Please select at least one game first.");
+                                            }
+                                        }}>
+                                            Update Metadata and Media for Selected Games
+                                        </button>
+                                    </div>
+                                {/if}
+                            </div>
+                            <button onclick={() => { currentView = 'tools'; menuOpen = false; }}>Paths & Environment</button>
+                        </div>
+                    {/if}
+                </div>
+
+                <div class="menu-item-container">
+                    <button class="menu-sub-trigger" onclick={() => viewMenuOpen = !viewMenuOpen}>
+                        View <span class="arrow">{viewMenuOpen ? '◀' : '▶'}</span>
+                    </button>
+                    {#if viewMenuOpen}
+                        <div class="menu-submenu">
+                            <div class="menu-item-container">
+                                <button class="menu-sub-trigger" onclick={() => imageGroupMenuOpen = !imageGroupMenuOpen}>
+                                    Image Group <span class="arrow">{imageGroupMenuOpen ? '◀' : '▶'}</span>
+                                </button>
+                                {#if imageGroupMenuOpen}
+                                    <div class="menu-submenu side">
+                                        {#each Object.keys(IMAGE_GROUPS) as group}
+                                            <button onclick={() => { setImageGroup(group); menuOpen = false; }}>
+                                                {activeImageGroup === group ? '✓ ' : ''}{group}
+                                            </button>
+                                        {/each}
+                                    </div>
+                                {/if}
+                            </div>
+                        </div>
+                    {/if}
+                </div>
+
                 <button onclick={() => { currentView = 'debug'; menuOpen = false; }}>Debug Logs</button>
                 <button onclick={() => { currentView = 'library'; menuOpen = false; }}>Back to Library</button>
             </div>
@@ -634,7 +994,13 @@
                     </div>
 
                     <div class="step-content">
-                        {#if wizardStep === 1}
+                        {#if loading}
+                            <div class="step-inner loading-step">
+                                <div class="spinner-large"></div>
+                                <h3>{wizardProgress}</h3>
+                                <p>{wizardDetail}</p>
+                            </div>
+                        {:else if wizardStep === 1}
                             <div class="step-inner">
                                 <h3>What platform are you importing games for?</h3>
                                 <p>Select the category and platform that these games belong to.</p>
@@ -717,13 +1083,6 @@
                         {:else if wizardStep === 4}
                             <div class="step-inner">
                                 <h3>Metadata & Media</h3>
-                                <div class="metadata-toggle">
-                                    <label class="checkbox-large">
-                                        <input type="checkbox" bind:checked={wizardSearchMetadata} />
-                                        <span>Search for game information in local metadata database</span>
-                                    </label>
-                                </div>
-                                
                                 <p>How would you like to download images for your games?</p>
                                 <div class="media-grid-scroll">
                                     <div class="media-column">
@@ -797,30 +1156,144 @@
 
         {#if currentView === 'library'}
             {#if selectedPlatform}
-                <header class="view-header">
-                    <h1>{selectedPlatform.name} <span class="count">({games.length})</span></h1>
-                    {#if platformEmulators.length > 0}
-                        <span class="emu-tag">Default: {platformEmulators[0].name}</span>
-                    {/if}
-                </header>
-                <div class="game-grid">
-                    {#each games as game}
-                        <div class="game-card">
-                            <div class="thumbnail" ondblclick={() => playGame(game.id)}>
-                                {#if thumbnails[game.id]}
-                                    <img src={thumbnails[game.id]} alt={game.title} />
-                                {:else}
-                                    <div class="placeholder"><span>{game.title}</span></div>
-                                {/if}
-                                <div class="card-overlay">
-                                    <button class="btn-play-icon" onclick={() => playGame(game.id)}>▶</button>
+                <div class="library-layout">
+                    <div class="main-column">
+                        <header class="view-header">
+                            <h1>{selectedPlatform.name} <span class="count">({games.length})</span></h1>
+                            {#if platformEmulators.length > 0}
+                                <span class="emu-tag">Default: {platformEmulators[0].name}</span>
+                            {/if}
+                        </header>
+
+                        <div class="scrollable-content" onclick={closeContextMenu}>
+                            {#if favoriteGames.length > 0}
+                                <h2 class="section-title">Favorites</h2>
+                                <div class="game-grid">
+                                    {#each favoriteGames as game}
+                                        <div class="game-card {selectedGames.includes(game.id) ? 'selected' : ''}" 
+                                             onclick={(e) => { e.stopPropagation(); toggleSelection(game.id, e); }}>
+                                            <div class="thumbnail" ondblclick={() => playGame(game.id)} oncontextmenu={(e) => openContextMenu(e, game.id)}>
+                                                {#if thumbnails[game.id]}
+                                                    <img src={thumbnails[game.id]} alt={game.title} />
+                                                {:else}
+                                                    <div class="placeholder"><span>{game.title}</span></div>
+                                                {/if}
+                                                <div class="card-overlay">
+                                                    <button class="btn-play-icon" onclick={() => playGame(game.id)}>▶</button>
+                                                </div>
+                                            </div>
+                                            <div class="info">
+                                                <h3>{game.title}</h3>
+                                            </div>
+                                        </div>
+                                    {/each}
                                 </div>
-                            </div>
-                            <div class="info">
-                                <h3>{game.title}</h3>
+                            {/if}
+
+                            <h2 class="section-title">Games</h2>
+                            <div class="game-grid">
+                                {#each otherGames as game}
+                                    <div class="game-card {selectedGames.includes(game.id) ? 'selected' : ''}" 
+                                         onclick={(e) => { e.stopPropagation(); toggleSelection(game.id, e); }}>
+                                        <div class="thumbnail" ondblclick={() => playGame(game.id)} oncontextmenu={(e) => openContextMenu(e, game.id)}>
+                                            {#if thumbnails[game.id]}
+                                                <img src={thumbnails[game.id]} alt={game.title} />
+                                            {:else}
+                                                <div class="placeholder"><span>{game.title}</span></div>
+                                            {/if}
+                                            <div class="card-overlay">
+                                                <button class="btn-play-icon" onclick={() => playGame(game.id)}>▶</button>
+                                            </div>
+                                        </div>
+                                        <div class="info">
+                                            <h3>{game.title}</h3>
+                                        </div>
+                                    </div>
+                                {/each}
                             </div>
                         </div>
-                    {/each}
+                    </div>
+
+                    {#if selectedGame}
+                        <aside class="details-pane">
+                            <div class="details-header">
+                                {#if selectedGameMedia.screenshots.length > 0}
+                                    <img src={selectedGameMedia.screenshots[0]} class="background" alt="bg" />
+                                {/if}
+                                <div class="logo-overlay">
+                                    {#if selectedGameMedia.logo}
+                                        <img src={selectedGameMedia.logo} alt="logo" />
+                                    {:else}
+                                        <h1 class="fallback-logo">{selectedGame.title}</h1>
+                                    {/if}
+                                </div>
+                            </div>
+
+                            <div class="details-body">
+                                <div class="details-top-actions">
+                                    <div class="star-rating">
+                                        {#each [1, 2, 3, 4, 5] as star}
+                                            <button class="star { (selectedGame.star_rating || 0) >= star ? 'active' : '' }" 
+                                                    onclick={() => setRating(selectedGame.id, star)}>
+                                                ★
+                                            </button>
+                                        {/each}
+                                    </div>
+                                    <button class="btn-heart {selectedGame.favorite ? 'active' : ''}" 
+                                            onclick={() => toggleFavorite(selectedGame.id)}>
+                                        ❤
+                                    </button>
+                                </div>
+
+                                <h1 class="details-title">{selectedGame.title}</h1>
+
+                                <div class="metadata-list">
+                                    <div class="metadata-item">
+                                        <span class="label">Platform</span>
+                                        <span class="value">{selectedPlatform.name}</span>
+                                    </div>
+                                    {#if selectedGame.release_date}
+                                        <div class="metadata-item">
+                                            <span class="label">Released</span>
+                                            <span class="value">{selectedGame.release_date.split('T')[0]}</span>
+                                        </div>
+                                    {/if}
+                                    {#if selectedGame.developer}
+                                        <div class="metadata-item">
+                                            <span class="label">Developer</span>
+                                            <span class="value">{selectedGame.developer}</span>
+                                        </div>
+                                    {/if}
+                                    {#if selectedGame.genre}
+                                        <div class="metadata-item">
+                                            <span class="label">Genre</span>
+                                            <span class="value">{selectedGame.genre}</span>
+                                        </div>
+                                    {/if}
+                                    {#if selectedGame.play_mode}
+                                        <div class="metadata-item">
+                                            <span class="label">Play Mode</span>
+                                            <span class="value">{selectedGame.play_mode}</span>
+                                        </div>
+                                    {/if}
+                                </div>
+
+                                {#if selectedGame.description}
+                                    <div class="details-description">
+                                        {selectedGame.description}
+                                    </div>
+                                {/if}
+
+                                <div class="media-gallery">
+                                    {#each selectedGameMedia.screenshots.slice(0, 4) as ss}
+                                        <div class="gallery-item">
+                                            <img src={ss} alt="screenshot" />
+                                        </div>
+                                    {/each}
+                                </div>
+                            </div>
+                        </aside>
+                    {/if}
                 </div>
             {:else}
                 <div class="welcome-screen"><div class="icon">📦</div><h1>Drag & Drop ROMs Here</h1></div>
@@ -860,12 +1333,161 @@
                 <div class="log-container">
                 {#each logs as log}<div class="log-entry"><span class="log-time">[{log.time}]</span><span class="log-msg">{log.message}</span></div>{/each}
             </div></div>
-        {/if}
-    </main>
-</div>
+            {/if}
+        
+            {#if multiUpdateWizardOpen}
+                <div class="wizard-overlay">
+                    <div class="wizard-card wide">
+                        <div class="wizard-header">
+                            <h2>Update Metadata & Media</h2>
+                            <button class="btn-close" onclick={() => multiUpdateWizardOpen = false}>&times;</button>
+                        </div>
+        
+                        <div class="step-content">
+                            {#if multiUpdateStep === 1}
+                                <div class="step-inner">
+                                    <p>You have selected <strong>{selectedGames.length}</strong> games to update.</p>
+                                    <p>How would you like to handle existing metadata and media?</p>
+                                    
+                                    <div class="selection-list">
+                                        <label class="selection-item {multiUpdateReplace === false ? 'active' : ''}">
+                                            <input type="radio" name="replace" value={false} bind:group={multiUpdateReplace} />
+                                            <div class="selection-text">
+                                                <span class="title">Yes, do not replace any existing fields or media (recommended)</span>
+                                                <span class="desc">Only missing information and images will be downloaded.</span>
+                                            </div>
+                                        </label>
+        
+                                        <label class="selection-item {multiUpdateReplace === true ? 'active' : ''}">
+                                            <input type="radio" name="replace" value={true} bind:group={multiUpdateReplace} />
+                                            <div class="selection-text">
+                                                <span class="title">Download and replace all existing metadata and media</span>
+                                                <span class="desc">Everything will be re-scraped and overwritten with fresh data.</span>
+                                            </div>
+                                        </label>
+                                    </div>
+        
+                                    <div class="wizard-actions">
+                                        <button class="btn-secondary" onclick={() => multiUpdateWizardOpen = false}>Cancel</button>
+                                        <button class="btn-primary" onclick={runMultiUpdate}>Update Games Now</button>
+                                    </div>
+                                </div>
+        
+                            {:else if multiUpdateStep === 2}
+                                <div class="step-inner loading-step">
+                                    <div class="spinner-large"></div>
+                                    <h3>{wizardProgress}</h3>
+                                    <p>{wizardDetail}</p>
+                                </div>
+        
+                            {:else if multiUpdateStep === 3}
+                                <div class="step-inner success-step">
+                                    <div class="success-icon">✅</div>
+                                    <h3>Batch Update Complete!</h3>
+                                    <p>Successfully processed {selectedGames.length} games.</p>
+                                    <div class="wizard-actions">
+                                        <button class="btn-primary" onclick={() => multiUpdateWizardOpen = false}>Finish</button>
+                                    </div>
+                                </div>
+                            {/if}
+                        </div>
+                    </div>
+                </div>
+            {/if}
+
+            {#if contextMenu.open}
+                <div class="context-menu" style="top: {contextMenu.y}px; left: {contextMenu.x}px;" onclick={(e) => e.stopPropagation()}>
+                    <button onclick={() => { playGame(contextMenu.gameId); closeContextMenu(); }}>Play...</button>
+                                <div class="menu-item-with-sub">
+                                    <button>Play version <span class="arrow">▶</span></button>
+                                    <div class="menu-sub-dropdown">
+                                        {#if contextMenuVersions.length > 0}
+                                            {#each contextMenuVersions as v}
+                                                <button onclick={() => { playGame(v.id); closeContextMenu(); }}>{v.title}</button>
+                                            {/each}
+                                        {:else}
+                                            <button disabled>No other versions found</button>
+                                        {/if}
+                                    </div>
+                                </div>
+                                <div class="menu-item-with-sub">
+                                    <button>Launch with <span class="arrow">▶</span></button>
+                                    <div class="menu-sub-dropdown">
+                                        {#each emulators as emu}
+                                            <button onclick={() => { /* TODO: Launch with specific emu */ }}>{emu.name}</button>
+                                        {/each}
+                                    </div>
+                                </div>
+                                <button>Open RetroArch</button>
+                                <button>RetroArch Netplay</button>
+                                <div class="menu-divider"></div>
+                                <button>Edit Metadata & Media...</button>
+                                <div class="menu-item-with-sub">
+                                    <button>Add to Favorites <span class="arrow">▶</span></button>
+                                    <div class="menu-sub-dropdown">
+                                        <button onclick={() => { showPlaylistSlideout = true; closeContextMenu(); }}>+ Add Playlist</button>
+                                        {#each playlists as pl}
+                                            <button>{pl}</button>
+                                        {/each}
+                                    </div>
+                                </div>
+                                <button onclick={() => { invoke('reset_game_stats', { gameId: contextMenu.gameId }); closeContextMenu(); }}>Reset play count and time</button>
+                                <button onclick={closeContextMenu}>Reset last played</button>
+                                <button onclick={closeContextMenu}>Expand selected games</button>
+                                <button class="btn-menu-delete" onclick={() => { invoke('delete_game', { gameId: contextMenu.gameId }); closeContextMenu(); }}>Delete</button>
+                                <div class="menu-divider"></div>
+                                <div class="menu-item-with-sub">
+                                    <button>Media <span class="arrow">▶</span></button>
+                                    <div class="menu-sub-dropdown">
+                                        <button>View images</button>
+                                        <button>View 3D box model</button>
+                                        <button>Play music</button>
+                                        <button>Flip box</button>
+                                        <button>Save image as...</button>
+                                        <button>Refresh selected images</button>
+                                    </div>
+                                </div>
+                                <div class="menu-item-with-sub">
+                                    <button>File Management <span class="arrow">▶</span></button>
+                                    <div class="menu-sub-dropdown">
+                                        <button onclick={() => {
+                                            const game = games.find(g => g.id === contextMenu.gameId);
+                                            if (game) invoke('open_folder', { path: game.file_path });
+                                            closeContextMenu();
+                                        }}>Open game folder</button>
+                                        <button onclick={closeContextMenu}>Open images folder</button>
+                                    </div>
+                                </div>
+                                <button onclick={closeContextMenu}>Select ROM in archive</button>
+                                <button onclick={async () => {
+                                    try {
+                                        const path = await invoke('generate_m3u', { gameId: contextMenu.gameId });
+                                        addLog(`Successfully generated M3U: ${path}`);
+                                    } catch (e) {
+                                        addLog(`M3U generation failed: ${e}`);
+                                    }
+                                    closeContextMenu();
+                                }}>Batch cache games (Generate M3U)</button>                </div>
+            {/if}
+        </main></div>
 
 <style>
     :global(body) { margin: 0; padding: 0; background: #121212; color: #e0e0e0; font-family: 'Segoe UI', system-ui, sans-serif; }
+    
+    .context-menu { position: fixed; background: #222; border: 1px solid #333; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 3000; min-width: 220px; padding: 5px 0; animation: menuFade 0.1s ease-out; }
+    .context-menu button { width: 100%; padding: 8px 15px; background: none; border: none; color: #ddd; text-align: left; cursor: pointer; font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center; }
+    .context-menu button:hover { background: #3b82f6; color: white; }
+    .context-menu .arrow { font-size: 0.7rem; opacity: 0.5; }
+    .btn-menu-delete:hover { background: #ef4444 !important; }
+    .menu-divider { height: 1px; background: #333; margin: 5px 0; }
+    
+    .menu-item-with-sub { position: relative; }
+    .menu-sub-dropdown { position: absolute; left: 100%; top: -5px; background: #222; border: 1px solid #333; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); min-width: 200px; padding: 5px 0; display: none; }
+    .menu-item-with-sub:hover > .menu-sub-dropdown { display: block; }
+    .menu-sub-dropdown.side { left: 100%; top: 0; }
+
+    @keyframes menuFade { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
     .app { display: flex; height: 100vh; overflow: hidden; position: relative; }
     .sidebar { width: 280px; background: #181818; padding: 20px; border-right: 1px solid #282828; display: flex; flex-direction: column; gap: 20px; position: relative; }
     .sidebar .header { display: flex; align-items: center; gap: 15px; }
@@ -874,7 +1496,7 @@
     .title-wrap { display: flex; flex-direction: column; }
     .version-tag { font-size: 0.6rem; color: #555; font-weight: bold; margin-top: -2px; }
     .sidebar h2 { margin: 0; font-size: 1.1rem; font-weight: 600; color: #fff; }
-    .menu-dropdown { position: absolute; top: 60px; left: 20px; right: 20px; background: #282828; border: 1px solid #383838; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); z-index: 100; overflow: hidden; }
+    .menu-dropdown { position: absolute; top: 60px; left: 20px; width: 240px; background: #282828; border: 1px solid #383838; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); z-index: 100; }
     .menu-dropdown button { width: 100%; padding: 12px 15px; background: none; border: none; color: #ddd; text-align: left; cursor: pointer; font-size: 0.9rem; }
     .menu-dropdown button:hover { background: #383838; color: #fff; }
     .sidebar-footer { margin-top: auto; padding-top: 10px; border-top: 1px solid #222; }
@@ -938,7 +1560,8 @@
     .sidebar li.active button { background: #3b82f6; color: white; }
     .content { flex: 1; padding: 30px; overflow-y: auto; background: #121212; position: relative; }
     .game-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 20px; }
-    .game-card { background: #181818; border-radius: 8px; overflow: hidden; border: 1px solid #282828; text-align: left; padding: 0; cursor: pointer; color: inherit; }
+    .game-card { background: #181818; border-radius: 8px; overflow: hidden; border: 2px solid transparent; text-align: left; padding: 0; cursor: pointer; color: inherit; transition: border-color 0.2s; }
+    .game-card.selected { border-color: #3b82f6; box-shadow: 0 0 15px rgba(59, 130, 246, 0.4); }
     .thumbnail { aspect-ratio: 3/4; background: #222; display: flex; align-items: center; justify-content: center; text-align: center; position: relative; }
     .thumbnail img { width: 100%; height: 100%; object-fit: cover; }
     .card-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; }
@@ -1004,6 +1627,31 @@
     .checkbox-large input { width: 20px; height: 20px; }
 
     .wizard-actions { margin-top: 40px; display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid #333; padding-top: 25px; }
+    
+    .loading-step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 0;
+        text-align: center;
+    }
+
+    .spinner-large {
+        width: 50px;
+        height: 50px;
+        border: 4px solid rgba(59, 130, 246, 0.1);
+        border-top: 4px solid #3b82f6;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-bottom: 20px;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
     .btn-secondary { background: #333; color: #eee; border: none; padding: 10px 25px; border-radius: 6px; cursor: pointer; font-weight: 600; }
     .btn-secondary:hover { background: #444; }
 
@@ -1022,6 +1670,61 @@
     .btn-dots:hover { color: #fff; }
     
     .platform-dropdown { position: absolute; top: 100%; right: 0; background: #282828; border: 1px solid #383838; border-radius: 4px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); z-index: 1000; min-width: 150px; }
+    .menu-item-container { position: relative; }
+    .menu-sub-trigger { display: flex; justify-content: space-between; align-items: center; }
+    .menu-submenu { position: absolute; left: 100%; top: -1px; width: 220px; background: #282828; border: 1px solid #383838; border-left: 2px solid #3b82f6; border-radius: 0 8px 8px 8px; box-shadow: 10px 10px 25px rgba(0,0,0,0.5); z-index: 110; display: flex; flex-direction: column; }
+    .menu-submenu.side { left: 100%; top: 0; }
+    
+    .selection-list { display: flex; flex-direction: column; gap: 15px; margin: 30px 0; text-align: left; }
+    .selection-item { display: flex; gap: 15px; padding: 20px; background: #252525; border: 1px solid #333; border-radius: 12px; cursor: pointer; transition: all 0.2s; }
+    .selection-item:hover { background: #2a2a2a; border-color: #444; }
+    .selection-item.active { background: #1e293b; border-color: #3b82f6; }
+    .selection-item input { width: 20px; height: 20px; margin-top: 2px; }
+    .selection-text .title { display: block; font-weight: bold; color: #fff; font-size: 1rem; margin-bottom: 4px; }
+    .selection-text .desc { display: block; font-size: 0.85rem; color: #aaa; }
+
+    .wizard-card.wide { max-width: 700px; width: 90%; }
+    .success-icon { font-size: 4rem; margin-bottom: 20px; }
+
     .btn-delete { width: 100%; padding: 10px; background: none; border: none; color: #ff4444; text-align: left; cursor: pointer; font-size: 0.8rem; }
     .btn-delete:hover { background: #383838; }
+
+    .library-layout { display: flex; flex: 1; min-height: 0; overflow: hidden; }
+    .main-column { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+    .scrollable-content { flex: 1; overflow-y: auto; padding: 20px; }
+    
+    .section-title { font-size: 1.2rem; font-weight: 700; color: #3b82f6; margin: 30px 0 15px 0; border-bottom: 1px solid #222; padding-bottom: 10px; }
+    .section-title:first-child { margin-top: 0; }
+
+    .details-pane { width: 450px; background: #111; border-left: 1px solid #222; overflow-y: auto; display: flex; flex-direction: column; }
+    .details-header { position: relative; width: 100%; aspect-ratio: 16/9; background: #000; overflow: hidden; }
+    .details-header .background { width: 100%; height: 100%; object-fit: cover; opacity: 0.4; filter: blur(5px); }
+    .details-header .logo-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; padding: 40px; }
+    .details-header .logo-overlay img { max-width: 100%; max-height: 100%; object-fit: contain; filter: drop-shadow(0 5px 15px rgba(0,0,0,0.8)); }
+
+    .details-body { padding: 25px; }
+    .details-top-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+    
+    .btn-heart { background: none; border: none; font-size: 1.8rem; cursor: pointer; color: #444; transition: transform 0.2s; }
+    .btn-heart:hover { transform: scale(1.2); }
+    .btn-heart.active { color: #ef4444; }
+
+    .star-rating { display: flex; gap: 5px; }
+    .star { font-size: 1.2rem; color: #333; cursor: pointer; transition: color 0.2s; }
+    .star.active { color: #facc15; }
+    .star:hover { transform: scale(1.1); }
+
+    .details-title { font-size: 1.8rem; font-weight: 800; margin: 0 0 20px 0; color: #fff; line-height: 1.2; }
+    
+    .metadata-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 30px; }
+    .metadata-item { display: flex; font-size: 0.9rem; }
+    .metadata-item .label { width: 120px; color: #666; font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 1px; }
+    .metadata-item .value { flex: 1; color: #ddd; }
+
+    .details-description { font-size: 0.95rem; color: #aaa; line-height: 1.6; border-top: 1px solid #222; padding-top: 20px; }
+    
+    .media-gallery { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 25px; }
+    .gallery-item { aspect-ratio: 16/9; background: #1a1a1a; border-radius: 4px; overflow: hidden; border: 1px solid #222; }
+    .gallery-item img { width: 100%; height: 100%; object-fit: cover; cursor: pointer; transition: opacity 0.2s; }
+    .gallery-item img:hover { opacity: 0.8; }
 </style>

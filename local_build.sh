@@ -6,9 +6,9 @@ STATIC_DIR="$PROJECT_ROOT/local-update-server/static"
 STATUS_FILE="$STATIC_DIR/build-status.json"
 
 VERSION=$(grep -m 1 "version =" "$PROJECT_ROOT/src-tauri/Cargo.toml" | cut -d '"' -f 2)
-PRIVATE_KEY="dW50cnVzdGVkIGNvbW1lbnQ6IHJzaWduIGVuY3J5cHRlZCBzZWNyZXQga2V5ClJXUlRZMEl5eERLQWgrSHRYNWhDYjZPL2xBZ0J5UDg0WHd2MVVQV2IwQWFidkJ4My9TWUFBQkFBQUFBQUFBQUFBQUlBQUFBQWFUdnNJTlN3V1ZKYWNkajd1VDlQci9lejRYQmxiUEZzVlFQTTY2ZlJyVVhocEIwSkV6aGV5S3VIcENWWi91T0Fqa2JiVUhUMHc2SEplRnpRVUFMZnl1TEpnaFl5Nk01OHgzeDdvZ2hmQTNtSUdwMnhwUHVMYnQyR1BHWUVwdnpIT1FhV054UkVSclU9Cg=="
+PRIVATE_KEY="dW50cnVzdGVkIGNvbW1lbnQ6IHJzaWduIGVuY3J5cHRlZCBzZWNyZXQga2V5ClJXUlRZMEl5QnJsMWhsbU9jTUtIR2thS2doVUdlWHRBSjNHNmV0MUVXTE0yZVBCNWp2Y0FBQkFBQUFBQUFBQUFBQUlBQUFBQW81TGM0amhYTTJUanl4b0o1VEdxcGx6eHkrVmdzSzc2QlZiZk9QZnhSTUtpUHRGTkl0YkUzL1YremVzSUdnSW4wN2NrdWJPM2NOUTMwaGR1bnlzRDZVRWVoVnFRa2JZOHNkTXhvZzBHNlhGNXM1Y0dLSi9pRkhaZnhoa2lXWWxFaUM5ZmpsbEQyRzQ9Cg=="
 export TAURI_SIGNING_PRIVATE_KEY="$PRIVATE_KEY"
-export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="solidsnake"
+export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="Solidsnake"
 
 update_status() {
     local status=$1
@@ -84,11 +84,28 @@ cat > "$STATIC_DIR/latest.json" << EOF
 }
 EOF
 
+# Notify the update server about the new build
+curl -s -X POST -H "Content-Type: application/json" \
+    -d "{\"version\": \"$VERSION\", \"notes\": \"Local build v$VERSION\"}" \
+    http://localhost:3001/notify-build || true
+
 # Also update NAS if it's the data root
 if [ -d "/home/ubuntubox/freenas/Emulation/Josh Program Files (x86)/OpenBox" ]; then
     echo "📂 Updating NAS..."
+    cp "${BUNDLE_DIR}/${EXE_NAME}" "/home/ubuntubox/freenas/TurboLaunch_v${VERSION}_Setup.exe"
     cp "${BUNDLE_DIR}/${EXE_NAME}" "/home/ubuntubox/freenas/TurboLaunch_Installer.exe"
     cp "$STATIC_DIR/latest.json" "/home/ubuntubox/freenas/TurboLaunch_Update.json"
+    
+    # Create a 1-click reinstaller script on the NAS
+    cat <<EOF > "/home/ubuntubox/freenas/REINSTALL_TURBOLAUNCH.bat"
+@echo off
+echo 🚀 Reinstalling TurboLaunch v${VERSION} Silently...
+echo ⏳ Please wait about 15 seconds for the background process to finish.
+start /wait "" "%~dp0TurboLaunch_Installer.exe" /S
+echo ✅ Done! You can now launch TurboLaunch.
+pause
+EOF
+    chmod +x "/home/ubuntubox/freenas/REINSTALL_TURBOLAUNCH.bat"
 fi
 
 echo "✅ Build Complete!"

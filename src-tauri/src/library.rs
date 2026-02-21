@@ -2,7 +2,9 @@ use sqlx::{SqlitePool};
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use anyhow::Result;
-use tauri::Manager; // Added Manager import
+use tauri::Manager;
+use std::fs;
+use std::path::Path;
 
 // Represents a Platform in RAM
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
@@ -37,6 +39,7 @@ pub struct Game {
     pub rating: Option<String>,
     pub region: Option<String>,
     pub play_count: u32,
+    pub play_time: u32,
     pub last_played: Option<String>,
     pub completed: bool,
     pub favorite: bool,
@@ -89,7 +92,7 @@ impl Library {
                 id, platform_id, title, sort_title, file_path,
                 file_exists, release_date, developer, publisher, genre,
                 play_mode, max_players, description, rating, region,
-                play_count, last_played, completed,
+                play_count, play_time, last_played, completed,
                 favorite, star_rating, video_path,
                 scraped
             FROM games
@@ -269,6 +272,189 @@ pub async fn delete_platform(app_handle: tauri::AppHandle, platform_id: String) 
 
     // Refresh memory
     load_library(app_handle).await?;
+    
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn reset_game_stats(app_handle: tauri::AppHandle, game_id: String) -> Result<(), String> {
+    let pool = app_handle.state::<SqlitePool>();
+    sqlx::query("UPDATE games SET play_count = 0, play_time = 0, last_played = NULL WHERE id = ?")
+        .bind(&game_id)
+        .execute(&*pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    
+    let _ = load_library(app_handle).await;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn delete_game(app_handle: tauri::AppHandle, game_id: String) -> Result<(), String> {
+    let pool = app_handle.state::<SqlitePool>();
+    
+    sqlx::query("DELETE FROM images WHERE game_id = ?")
+        .bind(&game_id)
+        .execute(&*pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    sqlx::query("DELETE FROM games WHERE id = ?")
+        .bind(&game_id)
+        .execute(&*pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    
+    let _ = load_library(app_handle).await;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn generate_m3u(game_id: String, app_handle: tauri::AppHandle) -> Result<String, String> {
+    let pool = app_handle.state::<SqlitePool>();
+    let game: Game = sqlx::query_as("SELECT * FROM games WHERE id = ?").bind(&game_id).fetch_one(&*pool).await.map_err(|e: sqlx::Error| e.to_string())?;
+    
+    let game_path = Path::new(&game.file_path);
+    let parent_dir = game_path.parent().ok_or("Game has no parent directory")?;
+    
+    // Find all discs (Disc 1, Disc 2, etc)
+    let mut discs = Vec::new();
+    let entries = fs::read_dir(parent_dir).map_err(|e: std::io::Error| e.to_string())?;
+    
+    let extensions = ["cue", "bin", "chd", "iso"];
+    for entry in entries {
+        if let Ok(entry) = entry {
+            let p = entry.path();
+            if p.is_file() {
+                if let Some(ext) = p.extension().and_then(|e: &std::ffi::OsStr| e.to_str()) {
+                    if extensions.contains(&ext.to_lowercase().as_str()) {
+                        // Check if it belongs to this game (primitive check)
+                        let fname = p.file_name().unwrap().to_string_lossy();
+                        if fname.contains(&game.title) {
+                            discs.push(fname.to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    discs.sort();
+    if discs.is_empty() { return Err("No discs found for this game".to_string()); }
+    
+    let m3u_path = parent_dir.join(format!("{}.m3u", game.title));
+    let content = discs.join("\n");
+    fs::write(&m3u_path, content).map_err(|e: std::io::Error| e.to_string())?;
+    
+    Ok(m3u_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub async fn update_game_metadata(
+    app_handle: tauri::AppHandle,
+    game_id: String,
+    data: crate::scraper::ScrapedGameData,
+) -> Result<(), String> {
+    let pool = app_handle.state::<SqlitePool>();
+    
+    sqlx::query(
+        r#"
+        UPDATE games SET
+            developer = ?,
+            publisher = ?,
+            release_date = ?,
+            genre = ?,
+            description = ?,
+            rating = ?,
+            region = ?,
+            play_mode = ?,
+            max_players = ?,
+            star_rating = ?,
+            scraped = 1
+        WHERE id = ?
+        "#
+    )
+    .bind(data.developer)
+    .bind(data.publisher)
+    .bind(data.release_date)
+    .bind(data.genres)
+    .bind(data.description)
+    .bind(data.rating)
+    .bind(data.region)
+    .bind(data.play_mode)
+    .bind(data.max_players)
+    .bind(data.star_rating)
+    .bind(&game_id)
+    .execute(&*pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    load_library(app_handle).await?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_game_versions(title: String, app_handle: tauri::AppHandle) -> Result<Vec<Game>, String> {
+    let library_mutex_state = app_handle.state::<tokio::sync::Mutex<Library>>();
+    let library_state = library_mutex_state.lock().await;
+    
+    // Simple version detection: titles that contain this title but are different IDs
+    let versions: Vec<Game> = library_state.games.values()
+        .filter(|g| g.title.contains(&title) || title.contains(&g.title))
+        .cloned()
+        .collect();
+        
+    Ok(versions)
+}
+
+#[tauri::command]
+pub async fn set_favorite(app_handle: tauri::AppHandle, game_id: String, favorite: bool) -> Result<(), String> {
+    let pool = app_handle.state::<SqlitePool>();
+    sqlx::query("UPDATE games SET favorite = ? WHERE id = ?")
+        .bind(favorite as i32)
+        .bind(&game_id)
+        .execute(&*pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    
+    let _ = load_library(app_handle).await;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn set_star_rating(app_handle: tauri::AppHandle, game_id: String, rating: f32) -> Result<(), String> {
+    let pool = app_handle.state::<SqlitePool>();
+    sqlx::query("UPDATE games SET star_rating = ? WHERE id = ?")
+        .bind(rating)
+        .bind(&game_id)
+        .execute(&*pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    
+    let _ = load_library(app_handle).await;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn open_folder(path: String) -> Result<(), String> {
+    let path_obj = Path::new(&path);
+    
+    #[cfg(target_os = "windows")]
+    {
+        use std::process::Command;
+        if path_obj.is_file() {
+            Command::new("explorer")
+                .arg("/select,")
+                .arg(path)
+                .spawn()
+                .map_err(|e: std::io::Error| e.to_string())?;
+        } else {
+            Command::new("explorer")
+                .arg(path)
+                .spawn()
+                .map_err(|e: std::io::Error| e.to_string())?;
+        }
+    }
     
     Ok(())
 }

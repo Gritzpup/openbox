@@ -167,10 +167,8 @@ pub async fn batch_import(
     media_root: Option<String>,
 ) -> Result<Vec<String>, String> {
     let pool = app_handle.state::<SqlitePool>();
-    let config_state = tauri::async_runtime::block_on(async {
-        let app_dir = app_handle.path().app_local_data_dir().unwrap();
-        crate::config::load_config(&app_dir).await.unwrap()
-    });
+    let app_dir = app_handle.path().app_local_data_dir().map_err(|e| e.to_string())?;
+    let config_state = crate::config::load_config(&app_dir).await.map_err(|e| e.to_string())?;
 
     // 1. Ensure platform exists in DB (Foreign Key requirement)
     sqlx::query("INSERT OR IGNORE INTO platforms (id, name, category, folder_path) VALUES (?, ?, ?, ?)")
@@ -237,11 +235,17 @@ pub async fn batch_import(
                         if file_action == "copy" || file_action == "move" {
                             let dest_path = dest_dir.join(p.file_name().unwrap());
                             if !dest_path.exists() {
-                                if file_action == "copy" {
-                                    fs::copy(&p, &dest_path).map_err(|e| e.to_string())?;
-                                } else {
-                                    fs::rename(&p, &dest_path).map_err(|e| e.to_string())?;
-                                }
+                                let p_clone = p.to_path_buf();
+                                let dest_path_clone = dest_path.clone();
+                                let action_clone = file_action.clone();
+                                
+                                tokio::task::spawn_blocking(move || {
+                                    if action_clone == "copy" {
+                                        fs::copy(&p_clone, &dest_path_clone).map(|_| ())
+                                    } else {
+                                        fs::rename(&p_clone, &dest_path_clone)
+                                    }
+                                }).await.map_err(|e| e.to_string())?.map_err(|e| e.to_string())?;
                             }
                             final_file_path = dest_path;
                         }
