@@ -262,7 +262,7 @@
         "Arcade", "MAME", "SNK Neo Geo AES", "Atari 2600", "Atari 5200", "Atari 7800", "PC", "Windows"
     ];
 
-    const CURRENT_VERSION = "v0.1.159";
+    const CURRENT_VERSION = "v0.1.173";
 
     let suppressSave = false;
     async function saveLastState() {
@@ -337,13 +337,16 @@
             addLog("Invoking load_library...");
             await invoke("load_library");
             addLog("Invoking get_platforms...");
-            platforms = await invoke("get_platforms");
-            addLog(`UI received ${platforms.length} platforms.`);
+            const raw = await invoke("get_platforms");
+            addLog(`UI received ${raw.length} platforms. Updating state...`);
+            // Explicitly set state to trigger reactivity
+            platforms = [...raw];
             
             // Auto-select first platform if none selected
             if (platforms.length > 0 && !selectedPlatform) {
-                addLog(`Auto-selecting first platform: ${platforms[0].name}`);
-                selectPlatform(platforms[0]);
+                const first = platforms[0];
+                addLog(`Auto-selecting first platform: ${first.name}`);
+                selectPlatform(first);
             }
         } catch (e) {
             addLog("Failed to load platforms: " + e);
@@ -395,7 +398,10 @@
         loading = true;
         saveLastState();
         try {
-            games = await invoke("get_games_for_platform", { platformId: platform.id });
+            const rawGames = await invoke("get_games_for_platform", { platformId: platform.id });
+            // Explicitly set state to trigger reactivity
+            games = [...rawGames];
+            addLog(`Loaded ${games.length} games for ${platform.name}.`);
             for (const game of games) {
                 loadThumbnail(game);
             }
@@ -940,36 +946,71 @@
                     }
                 });
                 
-                await loadConfig();
-                if (config.data_root) {
-                    addLog("Config loaded in onMount, loading platforms and reporting version...");
-                    await loadPlatforms();
-                    
-                    // RESTORE STATE
-                    if (config.last_platform_id) {
-                        addLog(`[STATE] Attempting to restore platform: ${config.last_platform_id}`);
-                        const lastPlat = platforms.find(p => p.id === config.last_platform_id);
-                        if (lastPlat) {
-                            suppressSave = true;
-                            await selectPlatform(lastPlat);
-                            if (config.last_game_id) {
-                                addLog(`[STATE] Attempting to restore game: ${config.last_game_id}`);
-                                // Give a small tick for the games list to actually populate in state
-                                setTimeout(() => {
-                                    selectedGames = [config.last_game_id];
-                                    suppressSave = false;
-                                }, 100);
-                            } else {
-                                suppressSave = false;
-                            }
-                        } else {
-                            addLog(`[STATE] Could not find platform ${config.last_platform_id} in loaded platforms.`);
+                // Set up library-ready listener BEFORE loadConfig to guarantee we
+                // never miss the event. The backend emits this after DB init + library
+                // load completes, which can take 5+ seconds. Calling load_library before
+                // the SqlitePool is managed causes a CRITICAL PANIC in the backend.
+                let libraryReadyHandled = false;
+                async function handleLibraryReady() {
+                    if (libraryReadyHandled) return;
+                    libraryReadyHandled = true;
+                    addLog("Library-ready: fetching platforms from RAM...");
+                    try {
+                        // get_platforms reads from the Library mutex (managed at app start),
+                        // safe to call without worrying about SqlitePool initialization state.
+                        const raw = await invoke("get_platforms");
+                        addLog(`UI received ${raw.length} platforms. Updating state...`);
+                        platforms = [...raw];
+                        if (platforms.length > 0 && !selectedPlatform) {
+                            addLog(`Auto-selecting first platform: ${platforms[0].name}`);
+                            selectPlatform(platforms[0]);
                         }
+                        // RESTORE STATE
+                        if (config.last_platform_id) {
+                            addLog(`[STATE] Attempting to restore platform: ${config.last_platform_id}`);
+                            const lastPlat = platforms.find(p => p.id === config.last_platform_id);
+                            if (lastPlat) {
+                                suppressSave = true;
+                                await selectPlatform(lastPlat);
+                                if (config.last_game_id) {
+                                    addLog(`[STATE] Attempting to restore game: ${config.last_game_id}`);
+                                    setTimeout(() => {
+                                        selectedGames = [config.last_game_id];
+                                        suppressSave = false;
+                                    }, 100);
+                                } else {
+                                    suppressSave = false;
+                                }
+                            } else {
+                                addLog(`[STATE] Could not find platform ${config.last_platform_id} in loaded platforms.`);
+                            }
+                        }
+                        if (config.data_root) {
+                            await invoke("report_version", { version: CURRENT_VERSION, nas_path: config.data_root, error: null });
+                        }
+                    } catch (e) {
+                        addLog(`Library-ready handler error: ${e}`);
                     }
+                }
 
-                    await invoke("report_version", { version: CURRENT_VERSION, nas_path: config.data_root, error: null });
-                } else {
+                const unlistenLibraryReady = await listen("library-ready", async () => {
+                    await handleLibraryReady();
+                    unlistenLibraryReady();
+                });
+
+                await loadConfig();
+                if (!config.data_root) {
                     addLog("Warning: No data_root found during onMount.");
+                } else {
+                    addLog("Config loaded. Waiting for library-ready signal...");
+                    // Fallback: if library-ready fired before our listener was registered
+                    // (very fast DB init), poll after 10s and call get_platforms directly.
+                    setTimeout(async () => {
+                        if (!libraryReadyHandled) {
+                            addLog("Fallback: library-ready not received, polling get_platforms...");
+                            await handleLibraryReady();
+                        }
+                    }, 10000);
                 }
             } catch (err) {
                 addLog(`Startup background error: ${err}`);

@@ -9,7 +9,7 @@ pub mod settings;
 pub mod scraper;
 pub mod redis_cache;
 
-use tauri::{Manager};
+use tauri::{Manager, Emitter};
 use std::fs;
 use tauri::http::{Response};
 use tauri::{UriSchemeContext, Wry};
@@ -281,7 +281,7 @@ pub fn run() {
         let current_exe = std::env::current_exe().unwrap_or_default();
         let config_dir = dirs::data_local_dir().unwrap_or_default().join("com.turbolaunch.app");
         let config = crate::config::load_config(&config_dir).await.unwrap_or_default();
-        let _ = internal_log_to_nas(format!("🚀 APP STARTUP: v0.1.159 | Path: {:?}", current_exe), config.data_root).await;
+        let _ = internal_log_to_nas(format!("🚀 APP STARTUP: v0.1.173 | Path: {:?}", current_exe), config.data_root).await;
     });
 
     let _ = tauri::Builder::default()
@@ -378,10 +378,13 @@ pub fn run() {
                                 
                                 match library::Library::load_from_db(&pool_state).await {
                                     Ok(lib) => {
-                                        let _ = internal_log_to_nas(format!("Library loaded! {} platforms, {} games.", lib.platforms.len(), lib.games.len()), config.data_root.clone()).await;
+                                        let p_count = lib.platforms.len();
+                                        let _ = internal_log_to_nas(format!("Library loaded! {} platforms, {} games.", p_count, lib.games.len()), config.data_root.clone()).await;
                                         let state = handle.state::<tokio::sync::Mutex<library::Library>>();
                                         let mut library_state = state.lock().await;
                                         *library_state = lib;
+                                        drop(library_state); // Release lock before emitting
+                                        let _ = handle.emit("library-ready", p_count);
                                     },
                                     Err(e) => {
                                         let _ = internal_log_to_nas(format!("Library load from DB FAILED: {}", e), config.data_root.clone()).await;
@@ -397,7 +400,7 @@ pub fn run() {
                 })        .invoke_handler(tauri::generate_handler![
             greet, 
             config::get_config, config::save_config, scanner::start_scan, scanner::detect_launchbox, scanner::batch_import,
-            library::load_library, library::get_games_for_platform, library::get_platforms, library::get_game_images, library::add_game, library::launch_game, library::delete_platform,
+            library::load_library, library::get_games_for_platform, library::get_platforms, library::get_platforms_direct, library::get_game_images, library::add_game, library::launch_game, library::delete_platform,
             media_cache::generate_thumbnail,
             settings::get_emulators, settings::save_emulator, settings::delete_emulator,
             settings::link_platform_emulator, settings::get_platform_emulators,

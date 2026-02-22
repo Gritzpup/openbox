@@ -1,5 +1,6 @@
 #!/bin/bash
 set -e
+export PATH="$HOME/.cargo/bin:$PATH"
 
 PROJECT_ROOT="/home/ubuntubox/github/openbox"
 STATIC_DIR="$PROJECT_ROOT/local-update-server/static"
