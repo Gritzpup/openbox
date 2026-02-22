@@ -26,14 +26,22 @@ EOF
 echo "🚀 Starting Local Build for v$VERSION..."
 update_status "in_progress" "null"
 
-# Build Frontend
-echo "📦 Building Svelte frontend..."
+# Build Frontend (Only if changed)
+echo "📦 Checking frontend changes..."
 cd "$PROJECT_ROOT"
-npm run build
+# Simple check: if build directory doesn't exist or src is newer than build
+if [ ! -d "build" ] || [ "$(find src static -type f -newer build | wc -l)" -gt 0 ]; then
+    echo "🔨 Changes detected, building Svelte frontend..."
+    npm run build
+    # Touch build folder to update its timestamp
+    touch build
+else
+    echo "✅ Frontend up to date, skipping build."
+fi
 
 # Build Windows App
-echo "🦀 Building Rust backend for Windows..."
-# Note: tauri build handles cargo build internally
+echo "🦀 Building Rust backend for Windows (Incremental)..."
+# Note: We removed 'cargo clean' to allow incremental compilation
 cd "$PROJECT_ROOT"
 npx tauri build --target x86_64-pc-windows-gnu
 
@@ -89,24 +97,12 @@ curl -s -X POST -H "Content-Type: application/json" \
     -d "{\"version\": \"$VERSION\", \"notes\": \"Local build v$VERSION\"}" \
     http://localhost:3001/notify-build || true
 
-# Also update NAS if it's the data root
-if [ -d "/home/ubuntubox/freenas/Emulation/Josh Program Files (x86)/OpenBox" ]; then
-    echo "📂 Updating NAS..."
-    cp "${BUNDLE_DIR}/${EXE_NAME}" "/home/ubuntubox/freenas/TurboLaunch_v${VERSION}_Setup.exe"
-    cp "${BUNDLE_DIR}/${EXE_NAME}" "/home/ubuntubox/freenas/TurboLaunch_Installer.exe"
-    cp "$STATIC_DIR/latest.json" "/home/ubuntubox/freenas/TurboLaunch_Update.json"
-    
-    # Create a 1-click reinstaller script on the NAS
-    cat <<EOF > "/home/ubuntubox/freenas/REINSTALL_TURBOLAUNCH.bat"
-@echo off
-echo 🚀 Reinstalling TurboLaunch v${VERSION} Silently...
-echo ⏳ Please wait about 15 seconds for the background process to finish.
-start /wait "" "%~dp0TurboLaunch_Installer.exe" /S
-echo ✅ Done! You can now launch TurboLaunch.
-pause
-EOF
-    chmod +x "/home/ubuntubox/freenas/REINSTALL_TURBOLAUNCH.bat"
-fi
+    # Also update NAS if it's the data root
+    if [ -d "/home/ubuntubox/freenas/Emulation/Josh Program Files (x86)/OpenBox" ]; then
+        echo "📂 Updating NAS..."
+        cp "${BUNDLE_DIR}/${EXE_NAME}" "/home/ubuntubox/freenas/TurboLaunch_Installer.exe"
+        cp "$STATIC_DIR/latest.json" "/home/ubuntubox/freenas/TurboLaunch_Update.json"
+    fi
 
 echo "✅ Build Complete!"
 update_status "completed" "success"

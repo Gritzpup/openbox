@@ -170,6 +170,8 @@ pub async fn batch_import(
     let app_dir = app_handle.path().app_local_data_dir().map_err(|e| e.to_string())?;
     let config_state = crate::config::load_config(&app_dir).await.map_err(|e| e.to_string())?;
 
+    let _ = crate::internal_log_to_nas(format!("[IMPORT] Starting batch import for platform '{}' from folder '{}'", platform_id, folder_path), None).await;
+
     // 1. Ensure platform exists in DB (Foreign Key requirement)
     sqlx::query("INSERT OR IGNORE INTO platforms (id, name, category, folder_path) VALUES (?, ?, ?, ?)")
         .bind(&platform_id)
@@ -183,10 +185,12 @@ pub async fn batch_import(
     let master_games_dir = if let Some(ref root) = config_state.data_root {
         let p = PathBuf::from(root).join("Games").join(&platform_id);
         if !p.exists() {
+            let _ = crate::internal_log_to_nas(format!("[IMPORT] Creating master games directory: {:?}", p), None).await;
             fs::create_dir_all(&p).map_err(|e| e.to_string())?;
         }
         Some(p)
     } else {
+        let _ = crate::internal_log_to_nas("[IMPORT] WARNING: No data_root set, skipping file copy/move operations.".to_string(), None).await;
         None
     };
 
@@ -226,6 +230,7 @@ pub async fn batch_import(
             if let Some(ext) = p.extension().and_then(|e| e.to_str()) {
                 if extensions.contains(&ext.to_lowercase().as_str()) {
                     let title = p.file_stem().unwrap().to_string_lossy().to_string();
+                    let _ = crate::internal_log_to_nas(format!("[IMPORT] Found game file: {:?}", p.file_name().unwrap()), None).await;
                     let id = format!("{}-{}", platform_id, title).replace(" ", "-").to_lowercase();
                     
                     let mut final_file_path = p.to_path_buf();
@@ -241,14 +246,20 @@ pub async fn batch_import(
                                 
                                 tokio::task::spawn_blocking(move || {
                                     if action_clone == "copy" {
+                                        let _ = println!("[IMPORT] Copying file to {:?}", dest_path_clone);
                                         fs::copy(&p_clone, &dest_path_clone).map(|_| ())
                                     } else {
+                                        let _ = println!("[IMPORT] Moving file to {:?}", dest_path_clone);
                                         fs::rename(&p_clone, &dest_path_clone)
                                     }
                                 }).await.map_err(|e| e.to_string())?.map_err(|e| e.to_string())?;
+                            } else {
+                                let _ = crate::internal_log_to_nas(format!("[IMPORT] File already exists at destination, using existing: {:?}", dest_path), None).await;
                             }
                             final_file_path = dest_path;
                         }
+                    } else {
+                        let _ = crate::internal_log_to_nas(format!("[IMPORT] Linking file in current location: {:?}", final_file_path), None).await;
                     }
 
                     // Add to DB

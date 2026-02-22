@@ -1,11 +1,11 @@
 {
-  "version": "0.1.124",
-  "notes": "Local build v0.1.124",
-  "pub_date": "2026-02-21T10:10:00Z",
+  "version": "0.1.159",
+  "notes": "Local build v0.1.159",
+  "pub_date": "2026-02-22T01:05:07Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTcVJOOFRPRFpWMDJXNjFpa1QydzhGcTJxajhoU3NPZUJGYWpwbFhDVU80ZHhLRmlMb3doVlV2UEM5TmlXQnd6ZW5aYjF0S1ZXRnZJQnF2dTdjOU9SbFU4ajNGR0FPdkFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcxNjY4NjAwCWZpbGU6VHVyYm9MYXVuY2hfMC4xLjEyNF94NjQtc2V0dXAuZXhlCnZiMHozNVpRSlk4K0xCcEhOeURTVUhBZmFmUmhPTVdzS2Z0NjZFMEdsOUFWOHRpVVh1NWo2c3Y0bjFMSWlPYlA5T2U1dGxWSWVQbVJvSjJGVUU1aENnPT0K",
-      "url": "http://192.168.1.51:3001/TurboLaunch_0.1.124_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTcVJOOFRPRFpWMC9rUEhJOFYxbzFOS29acnA2N2ZXSmlibXVXTW5tNDNEN2M0emd0aUtYd1hubjVkNGVtRHNqcEdseVBhL1VVZ0d5TlF5cUtFdzNYUXByTE1YeUZVN3dzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcxNzIyMzA3CWZpbGU6VHVyYm9MYXVuY2hfMC4xLjE1OV94NjQtc2V0dXAuZXhlCnNaSmhmL2tXaEVUL3dTU3FBcjF2TmY1UEdHdHdJOS9qeXRRZWd1RTNReUY5akVpMStkaHAvL2FFdUxVbkdYZkZ4cThuMHdPUFk5djJaUWtXS0p0a0J3PT0K",
+      "url": "http://192.168.1.51:3001/TurboLaunch_0.1.159_x64-setup.exe"
     }
   }
 }

@@ -8,7 +8,6 @@ use tauri::Manager;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AppConfig {
     pub data_root: Option<String>, // The master folder on the NAS for DB/Settings/Media
-    pub launchbox_root: String,
     pub media_root: String,
     pub global_media_root: Option<String>,
     pub cache_dir: String,
@@ -16,13 +15,16 @@ pub struct AppConfig {
     pub thumbnail_height: u32,
     pub startup_verify_paths: bool,
     pub theme: String,
+    pub ra_username: String,
+    pub ra_api_key: String,
+    pub last_platform_id: Option<String>,
+    pub last_game_id: Option<String>,
 }
 
 impl Default for AppConfig {
     fn default() -> Self {
         AppConfig {
             data_root: None,
-            launchbox_root: "".to_string(),
             media_root: "".to_string(),
             global_media_root: None,
             cache_dir: "".to_string(),
@@ -30,6 +32,10 @@ impl Default for AppConfig {
             thumbnail_height: 400,
             startup_verify_paths: true,
             theme: "dark".to_string(),
+            ra_username: "".to_string(),
+            ra_api_key: "CpwgrPoMcC9w9PNuq4ZHbVu6pBEJPmJ5".to_string(),
+            last_platform_id: None,
+            last_game_id: None,
         }
     }
 }

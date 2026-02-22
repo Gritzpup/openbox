@@ -1,6 +1,7 @@
-use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
+use sqlx::{sqlite::SqlitePoolOptions, SqlitePool, sqlite::SqliteConnectOptions};
 use std::fs;
 use std::path::Path;
+use std::str::FromStr;
 
 pub async fn init_db(db_dir: &Path) -> Result<SqlitePool, sqlx::Error> {
     if !db_dir.exists() {
@@ -10,18 +11,15 @@ pub async fn init_db(db_dir: &Path) -> Result<SqlitePool, sqlx::Error> {
         }
     }
     let db_path = db_dir.join("library.db");
-    let db_url = format!("sqlite:{}", db_path.to_string_lossy());
     
-    if !db_path.exists() {
-        if let Err(e) = fs::File::create(&db_path) {
-            eprintln!("Failed to create database file: {}", e);
-            return Err(sqlx::Error::Io(e));
-        }
-    }
+    let connect_options = SqliteConnectOptions::from_str(&format!("sqlite:{}", db_path.to_string_lossy()))?
+        .create_if_missing(true)
+        .busy_timeout(std::time::Duration::from_secs(10));
 
     let pool = SqlitePoolOptions::new()
         .max_connections(5)
-        .connect(&db_url)
+        .acquire_timeout(std::time::Duration::from_secs(10))
+        .connect_with(connect_options)
         .await?;
 
     sqlx::query(
@@ -88,33 +86,54 @@ pub async fn init_db(db_dir: &Path) -> Result<SqlitePool, sqlx::Error> {
     .execute(&pool)
     .await?;
 
-    // Migration: Add play_time if it doesn't exist
-    let _ = sqlx::query("ALTER TABLE games ADD COLUMN play_time INTEGER DEFAULT 0;")
+    // --- MIGRATIONS ---
+    let _ = sqlx::query("ALTER TABLE games ADD COLUMN release_date TEXT;").execute(&pool).await;
+    let _ = sqlx::query("ALTER TABLE games ADD COLUMN developer TEXT;").execute(&pool).await;
+    let _ = sqlx::query("ALTER TABLE games ADD COLUMN publisher TEXT;").execute(&pool).await;
+    let _ = sqlx::query("ALTER TABLE games ADD COLUMN genre TEXT;").execute(&pool).await;
+    let _ = sqlx::query("ALTER TABLE games ADD COLUMN play_mode TEXT;").execute(&pool).await;
+    let _ = sqlx::query("ALTER TABLE games ADD COLUMN max_players INTEGER;").execute(&pool).await;
+    let _ = sqlx::query("ALTER TABLE games ADD COLUMN description TEXT;").execute(&pool).await;
+    let _ = sqlx::query("ALTER TABLE games ADD COLUMN rating TEXT;").execute(&pool).await;
+    let _ = sqlx::query("ALTER TABLE games ADD COLUMN region TEXT;").execute(&pool).await;
+    let _ = sqlx::query("ALTER TABLE games ADD COLUMN play_time INTEGER DEFAULT 0;").execute(&pool).await;
+    let _ = sqlx::query("ALTER TABLE games ADD COLUMN favorite INTEGER DEFAULT 0;").execute(&pool).await;
+    let _ = sqlx::query("ALTER TABLE games ADD COLUMN star_rating REAL;").execute(&pool).await;
+    let _ = sqlx::query("ALTER TABLE games ADD COLUMN video_path TEXT;").execute(&pool).await;
+    let _ = sqlx::query("ALTER TABLE games ADD COLUMN scraped INTEGER DEFAULT 0;").execute(&pool).await;
+    let _ = sqlx::query("ALTER TABLE games ADD COLUMN file_hash TEXT;").execute(&pool).await;
+    let _ = sqlx::query("ALTER TABLE games ADD COLUMN ra_game_id INTEGER;").execute(&pool).await;
+
+    sqlx::query(
+        "
+        CREATE TABLE IF NOT EXISTS metadata (
+            id               TEXT PRIMARY KEY,
+            title            TEXT NOT NULL,
+            search_title     TEXT,
+            platform         TEXT,
+            release_date     TEXT,
+            developer        TEXT,
+            publisher        TEXT,
+            genres           TEXT,
+            max_players      INTEGER,
+            description      TEXT,
+            rating           TEXT,
+            star_rating      REAL
+        );
+        "
+    )
+    .execute(&pool)
+    .await?;
+
+    let _ = sqlx::query("ALTER TABLE metadata ADD COLUMN search_title TEXT;").execute(&pool).await;
+
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_metadata_title ON metadata(title);")
         .execute(&pool)
-        .await;
-
-    sqlx::query(
-        "
-        CREATE TABLE IF NOT EXISTS playlists (
-            id      TEXT PRIMARY KEY,
-            name    TEXT NOT NULL UNIQUE
-        );
-        "
-    )
-    .execute(&pool)
-    .await?;
-
-    sqlx::query(
-        "
-        CREATE TABLE IF NOT EXISTS playlist_games (
-            playlist_id TEXT REFERENCES playlists(id) ON DELETE CASCADE,
-            game_id     TEXT REFERENCES games(id) ON DELETE CASCADE,
-            PRIMARY KEY (playlist_id, game_id)
-        );
-        "
-    )
-    .execute(&pool)
-    .await?;
+        .await?;
+    
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_metadata_search ON metadata(search_title, platform);")
+        .execute(&pool)
+        .await?;
 
     sqlx::query(
         "

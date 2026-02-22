@@ -7,6 +7,7 @@ pub mod media_cache;
 pub mod library;
 pub mod settings;
 pub mod scraper;
+pub mod redis_cache;
 
 use tauri::{Manager};
 use std::fs;
@@ -238,14 +239,16 @@ async fn manual_install_update(url: String, app_handle: tauri::AppHandle) -> Res
         "@echo off\n\
          echo [%DATE% %TIME%] [UPDATE] Starting update script... >> \"{log}\"\n\
          timeout /t 5 /nobreak > NUL\n\
-         echo [%DATE% %TIME%] [UPDATE] Killing turbolaunch.exe... >> \"{log}\"\n\
+         echo [%DATE% %TIME%] [UPDATE] Killing processes and WebView2... >> \"{log}\"\n\
          taskkill /F /IM turbolaunch.exe /T >> \"{log}\" 2>&1\n\
          taskkill /F /IM TurboLaunch.exe /T >> \"{log}\" 2>&1\n\
-         timeout /t 2 /nobreak > NUL\n\
+         taskkill /F /IM TurboLaunch_*.exe /T >> \"{log}\" 2>&1\n\
+         taskkill /F /IM msedgewebview2.exe /T >> \"{log}\" 2>&1\n\
+         timeout /t 5 /nobreak > NUL\n\
          echo [%DATE% %TIME%] [UPDATE] Running installer: {inst} >> \"{log}\"\n\
          start /wait \"\" \"{inst}\" /S\n\
          echo [%DATE% %TIME%] [UPDATE] Installer finished with code %ERRORLEVEL% >> \"{log}\"\n\
-         timeout /t 5 /nobreak > NUL\n\
+         timeout /t 10 /nobreak > NUL\n\
          echo [%DATE% %TIME%] [UPDATE] Relaunching: {exe} >> \"{log}\"\n\
          start \"\" \"{exe}\"\n\
          echo [%DATE% %TIME%] [UPDATE] Script complete. >> \"{log}\"\n\
@@ -263,8 +266,8 @@ async fn manual_install_update(url: String, app_handle: tauri::AppHandle) -> Res
         .spawn()
         .map_err(|e| format!("Failed to launch update script: {}", e))?;
 
-    // Brutal exit to bypass Chrome unregister errors
-    std::process::exit(0);
+    app_handle.exit(0);
+    Ok(())
 }
 
 #[tauri::command]
@@ -274,6 +277,13 @@ fn file_exists(path: String) -> bool {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    tauri::async_runtime::spawn(async move {
+        let current_exe = std::env::current_exe().unwrap_or_default();
+        let config_dir = dirs::data_local_dir().unwrap_or_default().join("com.turbolaunch.app");
+        let config = crate::config::load_config(&config_dir).await.unwrap_or_default();
+        let _ = internal_log_to_nas(format!("🚀 APP STARTUP: v0.1.159 | Path: {:?}", current_exe), config.data_root).await;
+    });
+
     let _ = tauri::Builder::default()
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
@@ -398,7 +408,7 @@ pub fn run() {
             manual_check_update, manual_install_update, file_exists,
             library::reset_game_stats, library::delete_game, library::open_folder,
             library::generate_m3u, library::get_game_versions, library::update_game_metadata,
-            library::set_favorite, library::set_star_rating
+            library::set_favorite, library::set_star_rating, library::check_ra_compatibility, scraper::index_metadata
         ])
         .run(tauri::generate_context!());
 }

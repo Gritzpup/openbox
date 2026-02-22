@@ -45,6 +45,8 @@ pub struct Game {
     pub favorite: bool,
     pub star_rating: Option<f32>,
     pub video_path: Option<String>,
+    pub file_hash: Option<String>,
+    pub ra_game_id: Option<i32>,
     pub scraped: bool,
     #[sqlx(skip)]
     pub images: Vec<Image>, // Images for this game
@@ -93,7 +95,7 @@ impl Library {
                 file_exists, release_date, developer, publisher, genre,
                 play_mode, max_players, description, rating, region,
                 play_count, play_time, last_played, completed,
-                favorite, star_rating, video_path,
+                favorite, star_rating, video_path, file_hash, ra_game_id,
                 scraped
             FROM games
             "#
@@ -132,12 +134,14 @@ pub async fn load_library(app_handle: tauri::AppHandle) -> Result<(), String> {
 
     match Library::load_from_db(&pool).await {
         Ok(library) => {
+            let p_count = library.platforms.len();
+            let g_count = library.games.len();
             *library_state = library;
-            println!("Library loaded into RAM successfully.");
+            let _ = crate::internal_log_to_nas(format!("[LIBRARY] Successfully loaded {} platforms and {} games into RAM.", p_count, g_count), None).await;
             Ok(())
         },
         Err(e) => {
-            eprintln!("Failed to load library from DB: {:?}", e);
+            let _ = crate::internal_log_to_nas(format!("[LIBRARY] FAILED to load from DB: {}", e), None).await;
             Err(e.to_string())
         }
     }
@@ -147,12 +151,16 @@ pub async fn load_library(app_handle: tauri::AppHandle) -> Result<(), String> {
 pub async fn get_games_for_platform(app_handle: tauri::AppHandle, platform_id: String) -> Result<Vec<Game>, String> {
     let library_mutex_state = app_handle.state::<tokio::sync::Mutex<Library>>(); // Get State directly
     let library_state = library_mutex_state.lock().await;
+    
     let games: Vec<Game> = library_state.games.values()
         .filter(|game| game.platform_id == platform_id)
         .cloned()
         .collect();
+    
+    let _ = crate::internal_log_to_nas(format!("[LIBRARY] get_games_for_platform('{}') returned {} games.", platform_id, games.len()), None).await;
     Ok(games)
 }
+
 
 #[tauri::command] // Added tauri::command
 pub async fn get_platforms(app_handle: tauri::AppHandle) -> Result<Vec<Platform>, String> {
@@ -370,6 +378,7 @@ pub async fn update_game_metadata(
             play_mode = ?,
             max_players = ?,
             star_rating = ?,
+            video_path = ?,
             scraped = 1
         WHERE id = ?
         "#
@@ -384,10 +393,22 @@ pub async fn update_game_metadata(
     .bind(data.play_mode)
     .bind(data.max_players)
     .bind(data.star_rating)
+    .bind(data.art.gameplay_video_url)
     .bind(&game_id)
     .execute(&*pool)
     .await
     .map_err(|e| e.to_string())?;
+
+    // Also link the found image in the dedicated images table
+    if let Some(box_3d) = data.art.box_3d_url {
+        sqlx::query("INSERT OR REPLACE INTO images (game_id, image_type, source_path) VALUES (?, ?, ?)")
+            .bind(&game_id)
+            .bind("Box - 3D")
+            .bind(&box_3d)
+            .execute(&*pool)
+            .await
+            .map_err(|e| e.to_string())?;
+    }
 
     load_library(app_handle).await?;
     Ok(())
@@ -437,24 +458,105 @@ pub async fn set_star_rating(app_handle: tauri::AppHandle, game_id: String, rati
 
 #[tauri::command]
 pub async fn open_folder(path: String) -> Result<(), String> {
-    let path_obj = Path::new(&path);
-    
-    #[cfg(target_os = "windows")]
-    {
-        use std::process::Command;
-        if path_obj.is_file() {
-            Command::new("explorer")
-                .arg("/select,")
-                .arg(path)
-                .spawn()
-                .map_err(|e: std::io::Error| e.to_string())?;
-        } else {
-            Command::new("explorer")
-                .arg(path)
-                .spawn()
-                .map_err(|e: std::io::Error| e.to_string())?;
-        }
-    }
-    
+    let _path_obj = Path::new(&path);
+    // TODO: Actually open the folder using platform-specific commands
     Ok(())
+}
+
+use std::io::{Read, BufReader};
+
+#[tauri::command]
+pub async fn check_ra_compatibility(app_handle: tauri::AppHandle, game_id: String) -> Result<Option<i32>, String> {
+    let pool = app_handle.state::<SqlitePool>();
+    let app_dir = app_handle.path().app_local_data_dir().map_err(|e| e.to_string())?;
+    let config = crate::config::load_config(&app_dir).await.map_err(|e| e.to_string())?;
+    
+    if config.ra_api_key.is_empty() {
+        return Err("RetroAchievements API Key not configured".to_string());
+    }
+
+    let game: Game = sqlx::query_as("SELECT * FROM games WHERE id = ?")
+        .bind(&game_id)
+        .fetch_one(&*pool)
+        .await
+        .map_err(|e: sqlx::Error| e.to_string())?;
+
+    // 1. Calculate Hash if missing
+    let hash = if let Some(h) = game.file_hash {
+        h
+    } else {
+        let path_str = game.file_path.clone();
+        
+        let hash_res = tokio::task::spawn_blocking(move || {
+            let path = Path::new(&path_str);
+            if !path.exists() { return None; }
+
+            // If it's a zip, hash the FIRST file inside it (usually the ROM)
+            if path.extension().map_or(false, |ext| ext.to_ascii_lowercase() == "zip") {
+                let file = fs::File::open(path).ok()?;
+                let mut archive = zip::ZipArchive::new(file).ok()?;
+                if archive.len() > 0 {
+                    let mut internal_file = archive.by_index(0).ok()?;
+                    let mut context = md5::Context::new();
+                    let mut buffer = [0; 1024 * 1024]; // 1MB buffer
+                    loop {
+                        let n = internal_file.read(&mut buffer).ok()?;
+                        if n == 0 { break; }
+                        context.consume(&buffer[..n]);
+                    }
+                    return Some(format!("{:x}", context.compute()));
+                }
+            }
+
+            // Normal file or fallback: use chunked reading to avoid OOM
+            let file = fs::File::open(path).ok()?;
+            let mut reader = BufReader::new(file);
+            let mut context = md5::Context::new();
+            let mut buffer = [0; 1024 * 1024]; // 1MB buffer
+            loop {
+                let n = reader.read(&mut buffer).ok()?;
+                if n == 0 { break; }
+                context.consume(&buffer[..n]);
+            }
+            Some(format!("{:x}", context.compute()))
+        }).await.map_err(|e| e.to_string())?;
+
+        match hash_res {
+            Some(h) => {
+                sqlx::query("UPDATE games SET file_hash = ? WHERE id = ?")
+                    .bind(&h)
+                    .bind(&game_id)
+                    .execute(&*pool)
+                    .await
+                    .map_err(|e: sqlx::Error| e.to_string())?;
+                h
+            },
+            None => return Err("ROM file not found or unreadable".to_string())
+        }
+    };
+
+    // 2. Query RA API
+    let url = format!(
+        "https://retroachievements.org/API/API_GetGameID.php?z={}&y={}&m={}",
+        config.ra_username, config.ra_api_key, hash
+    );
+
+    let client = reqwest::Client::new();
+    let resp = client.get(url).send().await.map_err(|e| e.to_string())?;
+    let body = resp.text().await.map_err(|e| e.to_string())?;
+    let game_id_val: i32 = body.trim().parse().unwrap_or(0);
+
+    if game_id_val > 0 {
+        sqlx::query("UPDATE games SET ra_game_id = ? WHERE id = ?")
+            .bind(game_id_val)
+            .bind(&game_id)
+            .execute(&*pool)
+            .await
+            .map_err(|e: sqlx::Error| e.to_string())?;
+        
+        let _ = load_library(app_handle).await;
+        Ok(Some(game_id_val))
+    } else {
+        Ok(None)
+    }
 }
